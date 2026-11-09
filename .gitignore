@@ -1,0 +1,26 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+.idea/
+*.iml
+captures/
+# Models & media never go to GitHub (they live in Drive)
+*.tflite
+*.task
+*.mp4
+*.mov
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png
+# Python backend
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+# Secrets — never commit keys
+*.json.key
+service-account*.json

@@ -1,0 +1,66 @@
+package edu.csueb.driveaware.data
+
+import android.graphics.Bitmap
+import android.util.Base64
+import edu.csueb.driveaware.BuildConfig
+import edu.csueb.driveaware.signals.EngineState
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+
+/**
+ * App → Cloud Run /verify. No keys on the phone; the backend's service account
+ * calls Vertex AI. Any failure (offline, timeout, bad JSON) returns null and the
+ * caller uses the local template message ("Offline: local alerts only").
+ */
+class BackendClient(private val baseUrl: String = BuildConfig.BACKEND_URL, private val timeoutMs: Int = 4000) {
+    data class Verdict(
+        val event: String, val confirmed: String, val severity: String,
+        val message: String, val action: String, val source: String, val latencyMs: Int,
+    )
+
+    val configured get() = baseUrl.isNotBlank()
+
+    fun verify(
+        tripId: String, tS: Float, trigger: String, level: Int, s: EngineState,
+        modelAClass: String?, modelAConf: Float?, handOccupied: Boolean, sunglasses: Boolean,
+        keyframe: Bitmap?,
+    ): Verdict? {
+        if (!configured) return null
+        val signals = JSONObject()
+            .put("perclos", s.perclos.toDouble()).put("blinks", s.blinks)
+            .put("longest_closure_s", s.longestClosureS.toDouble())
+            .put("yawns_5min", s.yawns5min).put("nods_5min", s.nods5min)
+            .put("gaze_away_s", s.gazeAwayS.toDouble())
+            .put("yaw_deg", s.yawDelta.toDouble()).put("pitch_deg", s.pitchDelta.toDouble())
+            .put("hand_occupied", handOccupied).put("sunglasses", sunglasses)
+        if (modelAClass != null) signals.put("model_a_class", modelAClass).put("model_a_conf", (modelAConf ?: 0f).toDouble())
+        val body = JSONObject().put("trip_id", tripId).put("t_s", tS.toDouble())
+            .put("trigger", trigger).put("level", level).put("signals", signals)
+        keyframe?.let { body.put("keyframe_jpeg_b64", jpegB64(it)) }
+
+        for (attempt in 0..1) {   // one retry
+            try {
+                val c = (URL("$baseUrl/verify").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"; doOutput = true
+                    connectTimeout = timeoutMs; readTimeout = timeoutMs
+                    setRequestProperty("Content-Type", "application/json")
+                }
+                c.outputStream.use { it.write(body.toString().toByteArray()) }
+                if (c.responseCode != 200) continue
+                val j = JSONObject(c.inputStream.bufferedReader().readText())
+                return Verdict(j.getString("event"), j.getString("confirmed"), j.getString("severity"),
+                    j.getString("message"), j.getString("action"), j.getString("source"), j.getInt("latency_ms"))
+            } catch (_: Exception) { /* retry once, then offline */ }
+        }
+        return null
+    }
+
+    private fun jpegB64(b: Bitmap): String {
+        val scaled = Bitmap.createScaledBitmap(b, 512, 512 * b.height / b.width, true)
+        val out = ByteArrayOutputStream()
+        scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        return Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }
+}
