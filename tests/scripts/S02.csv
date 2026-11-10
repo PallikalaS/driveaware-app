@@ -1,0 +1,11 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,1,25,27,mirror_check,Brief left mirror glance under 1 second; 2-second event window; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,2,64,71,eye_closure_long,Closed eyes for approximately 2 seconds; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,3,83,89,yawn,Performed a yawn; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,4,100,106,nod,Slow downward head nod; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,5,126,189,perclos_high,"Repeated slow blinks, each approximately 0.5 seconds and under 1 second; continued for approximately 60 seconds; mount=B"
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,6,203,215,phone_use,Held and looked at a second phone; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,7,225,241,drinking,Pretended to drink from a cup; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,8,275,283,face_touch,Touched or rubbed face; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,9,303,311,none,Partial occlusion test; hat brim shaded upper face; occlusion=hat; mount=B
+S02,S02_vanessa_day-clear_t1.mp4,vanessa,day-clear,10,311,360,none,Normal behavior; looked forward without performing target behaviors; mount=B
