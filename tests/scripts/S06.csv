@@ -1,0 +1,9 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,1,20,22,mirror_check,Brief left mirror glance under 1 second; 2-second event window; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,2,65,67,eye_closure_long,Closed eyes for approximately 2 seconds; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,3,80,85,yawn,Performed a yawn; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,4,95,99,nod,Slow downward head nod; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,5,195,205,phone_use,Held and looked at a second phone; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,6,215,220,drinking,Pretended to drink from a bottle; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,7,235,240,smoking,Pretended to smoke without a cigarette; mount=A
+S06,S06_mahitha_day-none_t1.mp4,mahitha,day-none,8,300,360,none,Normal behavior; looked forward without performing target behaviors; mount=A
