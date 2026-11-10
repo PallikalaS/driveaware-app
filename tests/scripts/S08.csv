@@ -1,0 +1,11 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,1,20,22,mirror_check,Brief left mirror glance under 1 second; 2-second event window; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,2,95,99,nod,Slow downward head nod; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,3,105,110,gaze_away,Looked toward passenger side; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,4,120,180,perclos_high,"Repeated slow blinks, each approximately 0.5 seconds and under 1 second; continued for approximately 60 seconds; mount=A"
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,5,195,205,phone_use,Held and looked at a second phone; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,6,215,220,drinking,Pretended to drink from a bottle; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,7,255,260,face_touch,Touched or rubbed face; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,8,280,290,none,Hand briefly crossed the face for partial occlusion; occlusion=hand; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,9,290,300,none,Moved hand away and looked forward; mount=A
+S08,S08_mahitha_night-sun_t1.mp4,mahitha,night-sun,10,300,360,none,Normal behavior; looked forward without performing target behaviors; mount=A
