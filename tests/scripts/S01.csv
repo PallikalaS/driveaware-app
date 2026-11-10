@@ -1,0 +1,10 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,1,22,24,mirror_check,Brief left mirror glance under 1 second; 2-second event window; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,2,68,73,eye_closure_long,Closed eyes for approximately 2 seconds; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,3,84,91,yawn,Performed a yawn; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,4,101,105,nod,Slow downward head nod; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,5,110,117,gaze_away,Looked toward passenger side; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,6,129,189,perclos_high,"Repeated slow blinks, each approximately 0.5 seconds and under 1 second; continued for approximately 60 seconds; mount=A"
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,7,203,219,phone_use,Held and looked at a second phone; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,8,249,257,smoking,Pretended to smoke without a cigarette; mount=A
+S01,S01_vanessa_day-none_t1.mp4,vanessa,day-none,9,257,360,none,Normal behavior; looked forward without performing target behaviors; mount=A
