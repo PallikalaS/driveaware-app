@@ -1,0 +1,11 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,1,25,27,mirror_check,Brief left mirror glance under 1 second; 2-second event window; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,2,73,76,eye_closure_long,Closed eyes for approximately 2 seconds; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,3,89,94,yawn,Performed a yawn; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,4,114,120,gaze_away,Looked toward passenger side; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,5,130,191,perclos_high,"Repeated slow blinks, each approximately 0.5 seconds and under 1 second; continued for approximately 60 seconds; mount=A"
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,6,225,238,drinking,Pretended to drink from a bottle; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,7,253,260,smoking,Pretended to smoke without a cigarette; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,8,274,279,face_touch,Touched or rubbed face; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,9,299,312,none,Partial occlusion test; mask partially covered lower face; occlusion=mask; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,10,312,360,none,Normal behavior; looked forward without performing target behaviors; mount=A
