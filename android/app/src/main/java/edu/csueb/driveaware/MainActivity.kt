@@ -130,7 +130,19 @@ class MainActivity : ComponentActivity() {
         Text("DriveAware", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text(if (ui.calibrated) "Calibrated ✓" else "Please calibrate first", color = if (ui.calibrated) Color.Green else Color.Yellow)
         Spacer(Modifier.height(12.dp))
-        Button(onClick = { vm.startMonitoring() }, enabled = ui.calibrated, modifier = Modifier.fillMaxWidth()) { Text("Start trip") }
+        // Session ID for test/validation runs (S01…S08, V01…V03). Blank = normal trip.
+        var sessionId by remember { mutableStateOf("") }
+        OutlinedTextField(
+            value = sessionId,
+            onValueChange = { v -> sessionId = v.uppercase().filter { it.isLetterOrDigit() }.take(8) },
+            label = { Text("Session ID (e.g. S01) — optional") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            onClick = { vm.startMonitoring(sessionId.ifBlank { "trip" }) },
+            enabled = ui.calibrated, modifier = Modifier.fillMaxWidth(),
+        ) { Text(if (sessionId.isBlank()) "Start trip" else "Start $sessionId") }
         OutlinedButton(onClick = { vm.startCalibration() }, modifier = Modifier.fillMaxWidth()) { Text("Calibrate (10 s)") }
         OutlinedButton(onClick = { vm.go(Screen.SETTINGS) }, modifier = Modifier.fillMaxWidth()) { Text("Settings") }
         Spacer(Modifier.height(12.dp))

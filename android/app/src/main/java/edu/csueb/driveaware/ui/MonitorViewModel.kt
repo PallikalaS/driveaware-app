@@ -68,6 +68,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(screen = Screen.CALIBRATION, calibrationProgress = 0f, calibrationError = null) }
     }
 
+    /** [sessionId] names the event log: S01 → S01_log_<timestamp>.csv, which match_events.py pairs with S01.csv. */
     fun startMonitoring(sessionId: String = "trip") {
         engine.th = settings.thresholds()
         settings.baseline()?.let { engine.base = it }
