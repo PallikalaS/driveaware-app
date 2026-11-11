@@ -24,3 +24,6 @@ __pycache__/
 # Secrets — never commit keys
 *.json.key
 service-account*.json
+
+# macOS
+.DS_Store

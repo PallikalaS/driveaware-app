@@ -8,7 +8,7 @@ package edu.csueb.driveaware.signals
 data class Thresholds(
     val earClosedRatio: Float = 0.70f,     // closed when EAR < baselineEar * ratio
     val longClosureS: Float = 1.0f,        // eye_closure_long
-    val severeClosureS: Float = 1.5f,      // -> level 3
+    val severeClosureS: Float = 1.0f,      // -> level 3 (labeling_guide: any closure >= 1.0 s is high)
     val blinkMaxS: Float = 0.5f,
     val perclosWindowS: Float = 60f,
     val perclosHigh: Float = 0.15f,

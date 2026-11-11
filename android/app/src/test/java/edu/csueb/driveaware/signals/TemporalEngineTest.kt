@@ -12,12 +12,20 @@ class TemporalEngineTest {
     private fun run(e: TemporalEngine, fromMs: Long, toMs: Long, f: (Long) -> FrameSignals) =
         (fromMs until toMs step 33).flatMap { e.process(f(it)) }
 
-    @Test fun longClosureFiresOnceAndEscalates() {
+    @Test fun longClosureIsLevel3AtOneSecond() {
+        // labeling_guide.md: any eye closure >= 1.0 s is high -> level 3, fired once.
         val e = TemporalEngine(base = base)
         val ev = run(e, 0, 2000) { frame(it, ear = 0.10f) }
         val closures = ev.filter { it.type == EventType.EYE_CLOSURE_LONG }
-        assertEquals(2, closures.size)           // level 2 at 1.0 s, level 3 at 1.5 s
-        assertEquals(3, closures.last().level)
+        assertEquals(1, closures.size)
+        assertEquals(3, closures.single().level)
+        assertTrue(closures.single().tS in 1.0f..1.1f)
+    }
+
+    @Test fun nodAloneIsLevel2() {
+        val e = TemporalEngine(base = base)
+        val ev = run(e, 0, 1000) { frame(it, pitch = -25f) }
+        assertEquals(2, ev.single { it.type == EventType.NOD }.level)
     }
 
     @Test fun blinksDoNotAlert() {
