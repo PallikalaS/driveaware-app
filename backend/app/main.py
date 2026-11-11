@@ -8,9 +8,13 @@ The phone never holds a key: Cloud Run runs as a least-privilege service
 account with roles/aiplatform.user; the app calls this URL.
 
 Env:
-  GCP_PROJECT, GCP_REGION (default us-central1)
-  GEMINI_MODEL   tuned endpoint resource name, e.g.
-                 projects/<p>/locations/us-central1/endpoints/<id>
+  GCP_PROJECT
+  VERTEX_LOCATION  Vertex AI location for Gemini (default "us": the multi-region
+                   endpoint where Gemini 3.5 Flash tuning and tuned serving run)
+  GEMINI_MODEL   base model id (default gemini-3.5-flash) or, after tuning, the
+                 tuned endpoint resource name, e.g.
+                 projects/<p>/locations/us/endpoints/<id>
+                 (gemini-2.5-flash was retired on Vertex AI on Oct 20, 2026)
                  (before tuning finishes: the base model id you confirmed)
   GEMINI_TIMEOUT_S (default 4), COOLDOWN_S (default 30)
   APP_TOKEN      optional shared token checked in X-App-Token header
@@ -41,7 +45,7 @@ def gemini():
     if _client is None:
         from google import genai
         _client = genai.Client(vertexai=True, project=os.environ["GCP_PROJECT"],
-                               location=os.getenv("GCP_REGION", "us-central1"))
+                               location=os.getenv("VERTEX_LOCATION", "us"))
     return _client
 
 
@@ -53,11 +57,14 @@ def call_gemini(req: VerifyRequest) -> GeminiVerdict:
                                            mime_type="image/jpeg"))
     parts.append(types.Part.from_text(text=build_prompt(req.trigger, req.level, req.signals)))
     resp = gemini().models.generate_content(
-        model=os.environ["GEMINI_MODEL"],
+        model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
         contents=[types.Content(role="user", parts=parts)],
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTION,
-            temperature=0.2, max_output_tokens=200,
+            # Gemini 3: keep the default temperature; minimal thinking for the
+            # tuned, short-answer task (Google's tuning guidance).
+            thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
+            max_output_tokens=512,
             response_mime_type="application/json",
             response_schema=GEMINI_RESPONSE_SCHEMA,
             http_options=types.HttpOptions(timeout=int(float(os.getenv("GEMINI_TIMEOUT_S", "4")) * 1000)),
@@ -74,7 +81,8 @@ def check_token(token: str | None):
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True, "model": os.getenv("GEMINI_MODEL", "unset")}
+    return {"ok": True, "model": os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
+            "location": os.getenv("VERTEX_LOCATION", "us")}
 
 
 @app.post("/verify", response_model=VerifyResponse)
