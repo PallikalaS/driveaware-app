@@ -1,0 +1,9 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,1,0,15,none,intro look forward
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,2,20,21,mirror_check,quick mirror glance under 1 s
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,3,35,36,none,should_not_alert; eyes closed 0.7 s
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,4,50,52,eye_closure_long,eyes closed 1.2 s
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,5,65,68,eye_closure_long,eyes closed 2 s
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,6,80,140,perclos_high,slow blinks about 0.5 s each every 2-3 s
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,7,150,156,yawn,yawn
+V01,V01_bindu_day-none_t1.mp4,bindu,day-none,8,156,180,none,look forward
