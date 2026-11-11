@@ -1,0 +1,11 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,1,0,15,none,intro look forward; sunglasses on
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,2,25,28,eye_closure_long,close eyes 2 s; expected possible miss because sunglasses limit eye tracking
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,3,40,46,yawn,yawn
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,4,55,59,nod,slow head nod
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,5,70,74,gaze_away,look at passenger side 3 s
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,6,85,97,phone_use,look at a phone
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,7,105,115,drinking,drink from a cup
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,8,125,132,smoking,pretend to smoke
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,9,145,150,face_touch,rub face
+V03,V03_bindu_day-sun_t1.mp4,bindu,day-sun,10,150,180,none,look forward; sunglasses on
