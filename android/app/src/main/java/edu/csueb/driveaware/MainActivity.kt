@@ -53,7 +53,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (!hasCamera) askCamera.launch(Manifest.permission.CAMERA)
-        landmarker = FaceLandmarkerHelper(this, onFrame = { f, _, bmp -> vm.onFrame(f, bmp) })
+        landmarker = FaceLandmarkerHelper(
+            this,
+            onFrame = { f, _, bmp -> vm.onFrame(f, bmp) },
+            onError = { msg -> vm.onModelError(msg) },
+        ).also { vm.setDelegate(it.delegateName) }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 val ui by vm.ui.collectAsStateWithLifecycle()
@@ -105,7 +109,8 @@ class MainActivity : ComponentActivity() {
         val e = ui.engine; val r = ui.raw
         Text(
             buildString {
-                appendLine("fps %.1f  face %s  %s".format(ui.fps, if (r?.faceFound == true) "yes" else "NO", ui.mode.csv))
+                appendLine("fps %.1f  face %s  %s  %s".format(ui.fps, if (r?.faceFound == true) "yes" else "NO", ui.mode.csv, ui.delegate))
+                ui.modelError?.let { appendLine("⚠ $it") }
                 appendLine("EAR %.3f  closed %s %.1fs".format(r?.ear ?: 0f, e.eyesClosed, e.closureS))
                 appendLine("PERCLOS %.2f  blinks/10s %d".format(e.perclos, e.blinks))
                 appendLine("MAR %.2f  jaw %.2f  yawns5m %d".format(r?.mar ?: 0f, r?.jawOpen ?: 0f, e.yawns5min))

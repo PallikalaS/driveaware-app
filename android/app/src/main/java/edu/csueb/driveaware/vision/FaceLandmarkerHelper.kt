@@ -3,9 +3,12 @@ package edu.csueb.driveaware.vision
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import androidx.camera.core.ImageProxy
 import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -20,21 +23,32 @@ import edu.csueb.driveaware.signals.Pt
  * Model C — pretrained MediaPipe Face Landmarker (on device, LIVE_STREAM mode).
  * Outputs 478 landmarks, 52 blendshapes and the facial transformation matrix,
  * which we turn into FrameSignals for the TemporalEngine.
+ *
+ * Delegate: GPU on real phones, CPU on the emulator (its GPU path fails with
+ * "Graph has errors"). If the GPU fails at runtime we rebuild on CPU once.
  */
 class FaceLandmarkerHelper(
-    context: Context,
+    private val context: Context,
     private val onFrame: (FrameSignals, FaceLandmarkerResult?, Bitmap) -> Unit,
     private val onError: (String) -> Unit = {},
-    useGpu: Boolean = true,
 ) {
-    private val landmarker: FaceLandmarker
+    @Volatile private var landmarker: FaceLandmarker
+    @Volatile private var needsCpuRebuild = false
+    var delegateName: String = ""; private set
     private var lastBitmap: Bitmap? = null
     private val t0 = SystemClock.uptimeMillis()
 
     init {
+        val gpu = !isEmulator()
+        landmarker = build(if (gpu) Delegate.GPU else Delegate.CPU)
+    }
+
+    private fun build(delegate: Delegate): FaceLandmarker {
+        delegateName = delegate.name
+        Log.i(TAG, "Face Landmarker delegate: $delegateName")
         val base = BaseOptions.builder()
             .setModelAssetPath("face_landmarker.task")
-            .setDelegate(if (useGpu) Delegate.GPU else Delegate.CPU)
+            .setDelegate(delegate)
             .build()
         val opts = FaceLandmarker.FaceLandmarkerOptions.builder()
             .setBaseOptions(base)
@@ -46,25 +60,40 @@ class FaceLandmarkerHelper(
             .setOutputFaceBlendshapes(true)
             .setOutputFacialTransformationMatrixes(true)
             .setResultListener(::onResult)
-            .setErrorListener { e -> onError(e.message ?: "landmarker error") }
+            .setErrorListener { e ->
+                Log.e(TAG, "MediaPipe error ($delegateName)", e)
+                if (delegateName == Delegate.GPU.name) needsCpuRebuild = true
+                onError("Face model error ($delegateName): ${e.message?.lineSequence()?.firstOrNull() ?: "unknown"}")
+            }
             .build()
-        landmarker = FaceLandmarker.createFromOptions(context, opts)
+        return FaceLandmarker.createFromOptions(context, opts)
     }
 
-    /** CameraX analyzer entry point (front camera, 640x480, RGBA_8888). */
+    /** CameraX analyzer entry point (front camera, 640x480, RGBA_8888). Runs on the analyzer thread. */
     fun detect(image: ImageProxy) {
-        val bmp = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-        image.use { bmp.copyPixelsFromBuffer(it.planes[0].buffer) }
+        if (needsCpuRebuild) {
+            needsCpuRebuild = false
+            runCatching { landmarker.close() }
+            landmarker = build(Delegate.CPU)
+        }
+        val rotation = image.imageInfo.rotationDegrees.toFloat()
+        // toBitmap() handles row-stride padding (copyPixelsFromBuffer can garble or throw).
+        val bmp = image.use { it.toBitmap() }
         val m = Matrix().apply {
-            postRotate(image.imageInfo.rotationDegrees.toFloat())
-            postScale(-1f, 1f, image.width / 2f, image.height / 2f) // mirror front camera
+            postRotate(rotation)
+            postScale(-1f, 1f) // mirror front camera so left/right match the preview
         }
         val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
         lastBitmap = rotated
-        landmarker.detectAsync(BitmapImageBuilder(rotated).build(), SystemClock.uptimeMillis())
+        try {
+            landmarker.detectAsync(BitmapImageBuilder(rotated).build(), SystemClock.uptimeMillis())
+        } catch (e: Exception) {
+            Log.e(TAG, "detectAsync failed", e)
+            onError("Face model error: ${e.message?.lineSequence()?.firstOrNull() ?: "unknown"}")
+        }
     }
 
-    private fun onResult(result: FaceLandmarkerResult, input: com.google.mediapipe.framework.image.MPImage) {
+    private fun onResult(result: FaceLandmarkerResult, input: MPImage) {
         val bmp = lastBitmap ?: return
         val t = SystemClock.uptimeMillis() - t0
         val faces = result.faceLandmarks()
@@ -83,5 +112,14 @@ class FaceLandmarkerHelper(
         )
     }
 
-    fun close() = landmarker.close()
+    fun close() = runCatching { landmarker.close() }
+
+    companion object {
+        private const val TAG = "DriveAware"
+
+        fun isEmulator(): Boolean =
+            Build.HARDWARE.contains("ranchu") || Build.HARDWARE.contains("goldfish") ||
+                Build.FINGERPRINT.contains("generic") || Build.FINGERPRINT.contains("emulator") ||
+                Build.MODEL.contains("sdk_gphone") || Build.PRODUCT.contains("sdk")
+    }
 }

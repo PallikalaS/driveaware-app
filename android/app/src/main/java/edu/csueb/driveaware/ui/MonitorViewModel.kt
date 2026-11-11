@@ -42,6 +42,8 @@ data class UiState(
     val logPath: String? = null,
     val events: List<EventLogger.Row> = emptyList(),
     val tripStartMs: Long = 0,
+    val modelError: String? = null,
+    val delegate: String = "",
 )
 
 class MonitorViewModel(app: Application) : AndroidViewModel(app) {
@@ -83,8 +85,14 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     fun stopMonitoring() = _ui.update { it.copy(screen = Screen.SUMMARY, events = logger.rows()) }
 
     /** Called on the camera analyzer thread for every processed frame. */
+    /** Face-model errors are shown on the debug overlay instead of failing silently. */
+    fun onModelError(msg: String) = _ui.update { it.copy(modelError = msg) }
+
+    fun setDelegate(name: String) = _ui.update { it.copy(delegate = name) }
+
     fun onFrame(f: FrameSignals, frame: Bitmap) {
         latestFrame = frame
+        if (_ui.value.modelError != null) _ui.update { it.copy(modelError = null) }
         val dt = f.tMs - lastFrameMs
         lastFrameMs = f.tMs
         val fps = if (dt > 0) 0.9f * _ui.value.fps + 0.1f * (1000f / dt) else _ui.value.fps
