@@ -1,0 +1,11 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,1,0,15,none,intro look forward
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,2,20,28,none,should_not_alert; talk or sing with mouth moving but do not yawn
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,3,35,41,yawn,yawn
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,4,55,61,yawn,yawn
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,5,70,71,none,should_not_alert; glance down at speedometer about 1 s
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,6,85,89,nod,slow head nod
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,7,100,101,mirror_check,quick mirror glance
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,8,110,113,gaze_away,look at passenger side 2.5 s
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,9,125,130,gaze_away,look at passenger side 4 s
+V02,V02_bindu_night-none_t1.mp4,bindu,night-none,10,135,180,none,look forward
