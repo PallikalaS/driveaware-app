@@ -154,14 +154,18 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Offline messages; same wording as the backend templates (labeling_guide.md section 5). */
     private fun localMessage(t: EventType, level: Int) = when (t) {
-        EventType.EYE_CLOSURE_LONG, EventType.NOD ->
-            if (level >= 3) "You seem very drowsy. Please pull over safely and rest." else "Your eyes closed for a while. Stay alert."
-        EventType.PERCLOS_HIGH -> "Signs of drowsiness. Plan a break at the next safe stop."
-        EventType.YAWN -> "Early signs of fatigue. Consider a short break soon."
+        EventType.EYE_CLOSURE_LONG -> "Your eyes closed for over a second, so please pull over safely and rest."
+        EventType.NOD ->
+            if (level >= 3) "Your head dropped forward, so please pull over safely and rest."
+            else "Your head dropped forward, so consider taking a break soon."
+        EventType.PERCLOS_HIGH -> "You're showing signs of fatigue, so plan a break at the next safe stop."
+        EventType.YAWN, EventType.FACE_TOUCH -> "You seem a little tired, so consider a short break soon."
         EventType.GAZE_AWAY -> "Eyes back on the road, please."
-        EventType.PHONE_USE -> "Please put the phone down and watch the road."
-        EventType.DRINKING, EventType.SMOKING, EventType.FACE_TOUCH -> "Keep your eyes on the road, please."
+        EventType.PHONE_USE -> "Put the phone down and keep your eyes on the road."
+        EventType.DRINKING -> "Keep at least one hand on the wheel while you drink."
+        EventType.SMOKING -> "Keep your hands and eyes on the road while you smoke."
     }
 
     override fun onCleared() { alerts.close() }

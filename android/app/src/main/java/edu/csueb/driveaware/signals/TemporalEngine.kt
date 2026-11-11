@@ -123,7 +123,9 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
             if (!nodFired && (t - nodStart!!) / 1000f >= th.nodMinS) {
                 nodFired = true
                 nodTimes.addLast(t); prune(nodTimes, t, 300_000)
-                fire(EventType.NOD, t, 3, "pitch %.0f".format(pitchDelta), refractoryS = 3f)?.let(out::add)
+                // labeling_guide: nod alone -> medium (level 2); nod while PERCLOS is high -> high (level 3).
+                val lvl = if (windowFull && perclos >= th.perclosHigh) 3 else 2
+                fire(EventType.NOD, t, lvl, "pitch %.0f".format(pitchDelta), refractoryS = 3f)?.let(out::add)
             }
         } else nodStart = null
 

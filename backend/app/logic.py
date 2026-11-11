@@ -29,17 +29,28 @@ TRIGGER_TO_EVENT = {
     "face_touch": "early_fatigue",
 }
 
+PERCLOS_HIGH = 0.15          # labeling_guide.md section 2
+GAZE_MEDIUM_S = 4.0          # gaze off road > 4 s -> medium
+
+# Offline / fallback messages. Wording follows labeling_guide.md section 5:
+# one calm sentence, <= 20 words, ends with a period, matches the action.
 TEMPLATES = {
     # (event, severity) -> (message, action)
-    ("drowsy", "high"): ("You seem very drowsy. Please pull over safely and rest.", "pull_over_now"),
-    ("drowsy", "medium"): ("Signs of drowsiness. Plan a break at the next safe stop.", "take_break_soon"),
-    ("drowsy", "low"): ("You look a little tired. Stay alert and consider a break soon.", "take_break_soon"),
-    ("early_fatigue", "low"): ("Early signs of fatigue. Consider a short break soon.", "take_break_soon"),
-    ("early_fatigue", "medium"): ("Fatigue is building. Please take a break soon.", "take_break_soon"),
-    ("distracted_phone", "medium"): ("Please put the phone down and watch the road.", "refocus"),
+    ("drowsy", "high"): ("Your eyes closed for over a second, so please pull over safely and rest.", "pull_over_now"),
+    ("drowsy", "medium"): ("You're showing signs of fatigue, so plan a break at the next safe stop.", "take_break_soon"),
+    ("early_fatigue", "low"): ("You seem a little tired, so consider a short break soon.", "take_break_soon"),
+    ("early_fatigue", "medium"): ("You've yawned several times, so a short break soon would help.", "take_break_soon"),
+    ("distracted_phone", "medium"): ("Put the phone down and keep your eyes on the road.", "refocus"),
+    ("distracted_phone", "high"): ("Put the phone down and keep your eyes on the road.", "refocus"),
     ("distracted_gaze", "low"): ("Eyes back on the road, please.", "refocus"),
-    ("drinking", "low"): ("Keep your eyes on the road while drinking.", "refocus"),
-    ("smoking", "low"): ("Keep both eyes on the road, please.", "refocus"),
+    ("distracted_gaze", "medium"): ("Eyes back on the road, please.", "refocus"),
+    ("drinking", "low"): ("Keep at least one hand on the wheel while you drink.", "refocus"),
+    ("smoking", "low"): ("Keep your hands and eyes on the road while you smoke.", "refocus"),
+}
+# A nod is drowsy but the high template mentions eyes; use a nod-specific line.
+NOD_MESSAGES = {
+    "high": ("Your head dropped forward, so please pull over safely and rest.", "pull_over_now"),
+    "medium": ("Your head dropped forward, so consider taking a break soon.", "take_break_soon"),
 }
 
 
@@ -59,37 +70,71 @@ def build_prompt(trigger: str, level: int, s: SignalSummary) -> str:
     return "Signals (last 10 s): " + " ".join(parts)
 
 
+def fallback_event(trigger: str, s: SignalSummary) -> str:
+    """Event for the template fallback (labeling_guide.md section 3)."""
+    if trigger in ("yawn", "face_touch") and s.perclos > PERCLOS_HIGH and not s.sunglasses:
+        return "drowsy"
+    return TRIGGER_TO_EVENT[trigger]
+
+
 def default_severity(trigger: str, s: SignalSummary) -> str:
-    """Numeric severity rules (mirror labeling_guide.md)."""
+    """Severity rules from labeling_guide.md section 4 (the approved spec).
+
+    Model A reports only phone_use (it can't tell texting from a call), so the
+    offline fallback uses medium; tuned Gemini sets high when the keyframe shows texting.
+    """
+    perclos_high = s.perclos > PERCLOS_HIGH and not s.sunglasses
     if trigger == "eye_closure_long":
-        return "high" if s.longest_closure_s >= 1.5 else "medium"
-    if trigger == "perclos_high":
-        return "medium" if s.yawns_5min >= 3 or s.nods_5min >= 1 else "low"
-    if trigger == "nod":
-        return "high"
-    if trigger == "phone_use":
-        return "medium"
-    if trigger == "yawn":
-        return "medium" if s.yawns_5min >= 3 else "low"
-    return "low"
+        sev = "high"                                   # any closure >= 1.0 s
+    elif trigger == "nod":
+        sev = "high" if perclos_high else "medium"     # nod alone -> medium
+    elif trigger == "perclos_high":
+        sev = "high" if s.nods_5min >= 1 else "medium"  # PERCLOS + nod -> high
+    elif trigger in ("yawn", "face_touch"):
+        sev = "medium" if (s.yawns_5min >= 3 or perclos_high) else "low"
+    elif trigger == "phone_use":
+        sev = "medium"
+    elif trigger == "gaze_away":
+        sev = "medium" if s.gaze_away_s > GAZE_MEDIUM_S else "low"
+    else:                                              # drinking, smoking
+        sev = "low"
+    # Sunglasses: eyes can't be measured reliably -> eye-based drowsy capped at medium.
+    if s.sunglasses and trigger in ("eye_closure_long", "perclos_high") and sev == "high":
+        sev = "medium"
+    return sev
 
 
 def template_verdict(req: VerifyRequest) -> GeminiVerdict:
-    event = TRIGGER_TO_EVENT[req.trigger]
-    sev = default_severity(req.trigger, req.signals)
-    msg, action = TEMPLATES.get((event, sev)) or TEMPLATES.get((event, "low")) or \
-        ("Please stay focused on the road.", "refocus")
+    s = req.signals
+    event = fallback_event(req.trigger, s)
+    sev = default_severity(req.trigger, s)
+    if event == "drowsy" and req.trigger == "nod":
+        msg, action = NOD_MESSAGES[sev if sev in NOD_MESSAGES else "medium"]
+    elif event == "drowsy" and s.sunglasses:
+        msg, action = ("You seem tired, so plan a break at the next safe stop.", "take_break_soon")
+    else:
+        msg, action = TEMPLATES.get((event, sev)) or TEMPLATES[(event, "low" if (event, "low") in TEMPLATES else "medium")]
     return GeminiVerdict(event=event, confirmed="yes", severity=sev, message=msg, action=action)
 
 
 def apply_authority_rule(req: VerifyRequest, v: GeminiVerdict) -> tuple[GeminiVerdict, bool]:
-    """Return (verdict, overridden). Measured triggers are always confirmed drowsy."""
+    """Return (verdict, overridden).
+
+    Measured triggers (eye closure >= 1.0 s, PERCLOS, nod) are never dismissed:
+    a false_alarm / confirmed=no / non-fatigue answer is replaced by the template.
+    A long eye closure without sunglasses is always high / pull_over_now;
+    with sunglasses, eye-based severity is capped at medium.
+    """
     if req.trigger not in MEASURED_TRIGGERS:
         return v, False
     if v.event == "false_alarm" or v.confirmed == "no" or v.event not in ("drowsy", "early_fatigue"):
         return template_verdict(req), True
-    if req.trigger == "eye_closure_long" and req.signals.longest_closure_s >= 1.5 and v.severity != "high":
-        return v.model_copy(update={"severity": "high", "action": "pull_over_now"}), True
+    s = req.signals
+    eye_trigger = req.trigger in ("eye_closure_long", "perclos_high")
+    if req.trigger == "eye_closure_long" and not s.sunglasses and v.severity != "high":
+        return v.model_copy(update={"event": "drowsy", "severity": "high", "action": "pull_over_now"}), True
+    if s.sunglasses and eye_trigger and v.severity == "high":
+        return v.model_copy(update={"severity": "medium", "action": "take_break_soon"}), True
     return v, False
 
 
