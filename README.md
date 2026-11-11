@@ -22,7 +22,7 @@ Front camera (CameraX 640×480, live) ──► Model C: MediaPipe Face Landmark
                  Fusion → alert level 1–3 (Level 3 fires locally first)
                                            │ keyframe + 10 s signal summary
                                            ▼
-          Cloud Run FastAPI /verify ─► Model B: fine-tuned Gemini Flash on Vertex AI  [cloud]
+          Cloud Run FastAPI /verify ─► Model B: fine-tuned Gemini 3.5 Flash on Vertex AI  [cloud]
           authority rule · 30 s cooldown · JSON validation · template fallback
                                            ▼
         Chime / spoken message / vibration / red flash · event log · trip summary
@@ -31,7 +31,7 @@ Front camera (CameraX 640×480, live) ──► Model C: MediaPipe Face Landmark
 | Model | What | Where | Customization | Output → next step |
 |---|---|---|---|---|
 | A | EfficientNet-Lite0 activity classifier | phone | fine-tuned (team + public data) | app class + conf → fusion |
-| B | Gemini Flash | Vertex AI endpoint via Cloud Run | supervised fine-tuned (~250 examples) | event/confirmed/severity/message/action → alert |
+| B | Gemini 3.5 Flash (`gemini-3.5-flash`) | Vertex AI endpoint via Cloud Run | supervised fine-tuned (~250 examples) | event/confirmed/severity/message/action → alert |
 | C | MediaPipe Face Landmarker | phone | pretrained | landmarks/blendshapes/pose → rules |
 
 ## Repo layout
@@ -61,7 +61,7 @@ docs/               architecture diagram, screenshots for the report
 ```bash
 cd backend && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt && pytest -q
-GCP_PROJECT=driveaware-cs663 GEMINI_MODEL=<model-or-tuned-endpoint> bash deploy.sh
+GCP_PROJECT=driveaware-cs663-swathi GEMINI_MODEL=<tuned-endpoint> bash deploy.sh   # default: gemini-3.5-flash, Vertex location "us"
 ```
 
 ## Status (what this first build includes)
