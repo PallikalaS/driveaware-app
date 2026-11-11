@@ -53,7 +53,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (!hasCamera) askCamera.launch(Manifest.permission.CAMERA)
-        landmarker = FaceLandmarkerHelper(this, onFrame = { f, _, bmp -> vm.onFrame(f, bmp) })
+        landmarker = FaceLandmarkerHelper(
+            this,
+            onFrame = { f, _, bmp -> vm.onFrame(f, bmp) },
+            onError = { msg -> vm.onModelError(msg) },
+        ).also { vm.setDelegate(it.delegateName) }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 val ui by vm.ui.collectAsStateWithLifecycle()
@@ -105,7 +109,8 @@ class MainActivity : ComponentActivity() {
         val e = ui.engine; val r = ui.raw
         Text(
             buildString {
-                appendLine("fps %.1f  face %s  %s".format(ui.fps, if (r?.faceFound == true) "yes" else "NO", ui.mode.csv))
+                appendLine("fps %.1f  face %s  %s  %s".format(ui.fps, if (r?.faceFound == true) "yes" else "NO", ui.mode.csv, ui.delegate))
+                ui.modelError?.let { appendLine("⚠ $it") }
                 appendLine("EAR %.3f  closed %s %.1fs".format(r?.ear ?: 0f, e.eyesClosed, e.closureS))
                 appendLine("PERCLOS %.2f  blinks/10s %d".format(e.perclos, e.blinks))
                 appendLine("MAR %.2f  jaw %.2f  yawns5m %d".format(r?.mar ?: 0f, r?.jawOpen ?: 0f, e.yawns5min))
@@ -130,7 +135,19 @@ class MainActivity : ComponentActivity() {
         Text("DriveAware", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text(if (ui.calibrated) "Calibrated ✓" else "Please calibrate first", color = if (ui.calibrated) Color.Green else Color.Yellow)
         Spacer(Modifier.height(12.dp))
-        Button(onClick = { vm.startMonitoring() }, enabled = ui.calibrated, modifier = Modifier.fillMaxWidth()) { Text("Start trip") }
+        // Session ID for test/validation runs (S01…S08, V01…V03). Blank = normal trip.
+        var sessionId by remember { mutableStateOf("") }
+        OutlinedTextField(
+            value = sessionId,
+            onValueChange = { v -> sessionId = v.uppercase().filter { it.isLetterOrDigit() }.take(8) },
+            label = { Text("Session ID (e.g. S01) — optional") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(
+            onClick = { vm.startMonitoring(sessionId.ifBlank { "trip" }) },
+            enabled = ui.calibrated, modifier = Modifier.fillMaxWidth(),
+        ) { Text(if (sessionId.isBlank()) "Start trip" else "Start $sessionId") }
         OutlinedButton(onClick = { vm.startCalibration() }, modifier = Modifier.fillMaxWidth()) { Text("Calibrate (10 s)") }
         OutlinedButton(onClick = { vm.go(Screen.SETTINGS) }, modifier = Modifier.fillMaxWidth()) { Text("Settings") }
         Spacer(Modifier.height(12.dp))
