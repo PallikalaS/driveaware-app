@@ -80,6 +80,10 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         monitorStartMs = 0
         _ui.update { it.copy(screen = Screen.MONITORING, alert = null, logPath = logger.file?.absolutePath,
             events = emptyList(), online = backend.configured) }
+        if (backend.configured) viewModelScope.launch(Dispatchers.IO) {
+            val ok = backend.warmUp()
+            _ui.update { it.copy(online = ok) }
+        }
     }
 
     fun stopMonitoring() = _ui.update { it.copy(screen = Screen.SUMMARY, events = logger.rows()) }
