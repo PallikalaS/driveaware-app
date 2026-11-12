@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-enum class Screen { HOME, CALIBRATION, MONITORING, SETTINGS, SUMMARY }
+enum class Screen { HOME, CALIBRATION, MONITORING, SETTINGS, SUMMARY, TEST }
 /** Ablation switch used in system tests (Vanessa). */
 enum class Mode(val csv: String) { RULES_ONLY("rules"), RULES_MODEL_A("rules_model_a"), FULL("full") }
 
