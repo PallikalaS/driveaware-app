@@ -48,13 +48,14 @@ object FaceSignals {
 
     /**
      * Head pose from MediaPipe's facial transformation matrix (4x4, column-major).
-     * Absolute signs are calibrated away: the engine uses deltas from the driver's baseline.
-     * Check the sign of pitch for "head down" on the debug overlay once on the test phone.
+     * Sign convention used by the rules: head DOWN = negative pitch (nod: pitchDelta <= -15).
+     * MediaPipe's matrix gives head-down as positive (verified on the emulator overlay and on
+     * recorded video), so pitch is negated here. The replay tool's head_pose() does the same.
      */
     fun headPose(m: FloatArray): HeadPose {
         fun r(row: Int, col: Int) = m[col * 4 + row]
         val sy = sqrt(r(0, 0) * r(0, 0) + r(1, 0) * r(1, 0))
-        val pitch = Math.toDegrees(atan2(r(2, 1), r(2, 2)).toDouble()).toFloat()
+        val pitch = -Math.toDegrees(atan2(r(2, 1), r(2, 2)).toDouble()).toFloat()
         val yaw = Math.toDegrees(atan2(-r(2, 0), sy).toDouble()).toFloat()
         val roll = Math.toDegrees(atan2(r(1, 0), r(0, 0)).toDouble()).toFloat()
         return HeadPose(yaw, pitch, roll)
