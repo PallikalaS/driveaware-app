@@ -102,12 +102,14 @@ class FaceLandmarkerHelper(
         }
         val aspect = input.width.toFloat() / input.height
         val lm = faces[0].map { Pt(it.x(), it.y(), it.z()) }
-        val jaw = result.faceBlendshapes().orElse(null)?.firstOrNull()
-            ?.firstOrNull { it.categoryName() == "jawOpen" }?.score() ?: 0f
+        val shapes = result.faceBlendshapes().orElse(null)?.firstOrNull()
+        fun shape(name: String) = shapes?.firstOrNull { it.categoryName() == name }?.score() ?: 0f
+        val jaw = shape("jawOpen")
+        val blink = (shape("eyeBlinkLeft") + shape("eyeBlinkRight")) / 2f
         val pose = result.facialTransformationMatrixes().orElse(null)?.firstOrNull()
             ?.let { FaceSignals.headPose(it) } ?: HeadPose(0f, 0f, 0f)
         onFrame(
-            FrameSignals(t, true, FaceSignals.meanEar(lm, aspect), FaceSignals.mar(lm, aspect), jaw, pose),
+            FrameSignals(t, true, FaceSignals.meanEar(lm, aspect), FaceSignals.mar(lm, aspect), jaw, blink, pose),
             result, bmp,
         )
     }

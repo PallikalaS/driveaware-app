@@ -68,21 +68,27 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
             return out
         }
 
+        // Mouth first: eyes squeeze shut during a real yawn, so no eye-closure alert while yawning
+        // (Vanessa's Issue #4). The closure still counts for blinks / PERCLOS.
+        val mouthOpen = f.mar >= th.yawnMar || f.jawOpen >= th.yawnJawOpen
+
         // ---------------- eyes: blink, long closure, PERCLOS
-        val closed = f.ear < base.ear * th.earClosedRatio
+        // EAR alone misses quick blinks on real phones (Issue #5); the face model's eyeBlink
+        // blendshapes are made for this, so either signal counts as closed.
+        val closed = f.ear < base.ear * th.earClosedRatio || f.eyeBlink >= th.blinkScoreClosed
         if (closed) {
             if (closeStart == null) {
                 closeStart = t; closureFired = false
                 lastLevel.remove(EventType.EYE_CLOSURE_LONG)
             }
             val dur = (t - closeStart!!) / 1000f
-            if (!closureFired && dur >= th.longClosureS) {
+            if (!closureFired && !mouthOpen && dur >= th.longClosureS) {
                 closureFired = true
                 val lvl = if (dur >= th.severeClosureS) 3 else 2
                 fire(EventType.EYE_CLOSURE_LONG, t, lvl, "closed %.1fs".format(dur))?.let(out::add)
             }
             // escalate to level 3 while still closed
-            if (closureFired && dur >= th.severeClosureS && (lastLevel[EventType.EYE_CLOSURE_LONG] ?: 0) < 3) {
+            if (closureFired && !mouthOpen && dur >= th.severeClosureS && (lastLevel[EventType.EYE_CLOSURE_LONG] ?: 0) < 3) {
                 lastLevel[EventType.EYE_CLOSURE_LONG] = 3
                 out += DetectedEvent(EventType.EYE_CLOSURE_LONG, tS, 3, "closed %.1fs".format(dur))
             }
@@ -102,8 +108,7 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
             fire(EventType.PERCLOS_HIGH, t, 2, "perclos %.2f".format(perclos), refractoryS = 30f)?.let(out::add)
         }
 
-        // ---------------- yawn: MAR or jawOpen blendshape held
-        val mouthOpen = f.mar >= th.yawnMar || f.jawOpen >= th.yawnJawOpen
+        // ---------------- yawn: MAR or jawOpen blendshape held (mouthOpen computed above)
         if (mouthOpen) {
             if (yawnStart == null) { yawnStart = t; yawnFired = false }
             if (!yawnFired && (t - yawnStart!!) / 1000f >= th.yawnMinS) {

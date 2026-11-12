@@ -17,6 +17,7 @@ data class FrameSignals(
     val ear: Float = 0f,          // mean of both eyes
     val mar: Float = 0f,
     val jawOpen: Float = 0f,      // blendshape 0..1
+    val eyeBlink: Float = 0f,     // mean of eyeBlinkLeft/Right blendshapes, 0 (open)..1 (shut)
     val pose: HeadPose = HeadPose(0f, 0f, 0f),
 )
 
