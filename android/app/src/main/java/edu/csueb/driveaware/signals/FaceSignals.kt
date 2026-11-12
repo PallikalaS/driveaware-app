@@ -19,6 +19,8 @@ data class FrameSignals(
     val jawOpen: Float = 0f,      // blendshape 0..1
     val eyeBlink: Float = 0f,     // mean of eyeBlinkLeft/Right blendshapes, 0 (open)..1 (shut)
     val pose: HeadPose = HeadPose(0f, 0f, 0f),
+    val eyeBrightness: Float = -1f, // eye-region mean gray (sunglasses check), -1 = not measured
+    val eyeSharpness: Float = -1f,  // eye-region Laplacian variance
 )
 
 object FaceSignals {

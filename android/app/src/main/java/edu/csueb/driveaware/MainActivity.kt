@@ -3,6 +3,8 @@ package edu.csueb.driveaware
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import android.util.Size
 import androidx.activity.ComponentActivity
@@ -37,6 +39,8 @@ import edu.csueb.driveaware.ui.Mode
 import edu.csueb.driveaware.ui.MonitorViewModel
 import edu.csueb.driveaware.ui.Screen
 import edu.csueb.driveaware.ui.UiState
+import edu.csueb.driveaware.signals.ActivityRules
+import edu.csueb.driveaware.signals.FatigueScore
 import edu.csueb.driveaware.vision.FaceLandmarkerHelper
 import java.io.File
 import java.util.concurrent.Executors
@@ -46,13 +50,26 @@ class MainActivity : ComponentActivity() {
     private var landmarker: FaceLandmarkerHelper? = null
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
     private var hasCamera by mutableStateOf(false)
+    private var cameraAsked = false
 
     private val askCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { hasCamera = it }
+
+    /** Recovery (#34): ask again; if Android won't show the dialog any more, open the app's settings. */
+    private fun requestCamera() {
+        if (cameraAsked && !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+        } else { cameraAsked = true; askCamera.launch(Manifest.permission.CAMERA) }
+    }
+
+    override fun onResume() {
+        super.onResume()   // back from the settings screen with permission granted
+        hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        if (!hasCamera) askCamera.launch(Manifest.permission.CAMERA)
+        if (!hasCamera) requestCamera()
         landmarker = FaceLandmarkerHelper(
             this,
             onFrame = { f, _, bmp -> vm.onFrame(f, bmp) },
@@ -65,8 +82,12 @@ class MainActivity : ComponentActivity() {
                     Row(Modifier.fillMaxSize()) {
                         Box(Modifier.weight(1f).fillMaxHeight()) {
                             if (hasCamera) CameraPreview()
-                            else Text("Camera permission needed", Modifier.align(Alignment.Center))
+                            else Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("DriveAware needs the front camera to watch for drowsiness.")
+                                Button(onClick = { requestCamera() }) { Text("Allow camera") }
+                            }
                             if (ui.showDebug) DebugOverlay(ui)
+                            StatusChips(ui)
                             AlertBanner(ui)
                         }
                         Column(Modifier.width(320.dp).fillMaxHeight().padding(12.dp)
@@ -115,6 +136,10 @@ class MainActivity : ComponentActivity() {
                 appendLine("PERCLOS %.2f  blinks/10s %d".format(e.perclos, e.blinks))
                 appendLine("MAR %.2f  jaw %.2f  yawns5m %d".format(r?.mar ?: 0f, r?.jawOpen ?: 0f, e.yawns5min))
                 appendLine("yawΔ %.0f  pitchΔ %.0f  nods5m %d  gaze %.1fs".format(e.yawDelta, e.pitchDelta, e.nods5min, e.gazeAwayS))
+                appendLine("eyes b%.0f s%.0f  sunglasses %s  fatigue %.0f".format(r?.eyeBrightness ?: -1f, r?.eyeSharpness ?: -1f,
+                    if (ui.sunglasses) "YES" else "no", ui.fatigue))
+                appendLine("ModelA %s".format(ui.modelA?.let { "%s %.2f".format(it.appClass, it.conf) }
+                    ?: if (ui.mode == Mode.RULES_ONLY) "off (rules only)" else "none"))
             },
             Modifier.padding(8.dp).background(Color(0x99000000)).padding(6.dp),
             color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
@@ -127,8 +152,18 @@ class MainActivity : ComponentActivity() {
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(bg).padding(16.dp)) {
             Text("Level ${a.level}: ${a.message}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
-        if (!ui.online) Text("Offline: local alerts only", Modifier.align(Alignment.TopEnd).padding(8.dp)
-            .background(Color(0xAA000000)).padding(4.dp), color = Color.Yellow)
+    }
+
+    /** Recovery states (#34), shown whenever they apply, with or without an alert. */
+    @Composable private fun BoxScope.StatusChips(ui: UiState) {
+        if (ui.screen != Screen.MONITORING) return
+        Column(Modifier.align(Alignment.TopEnd).padding(8.dp), horizontalAlignment = Alignment.End) {
+            @Composable fun chip(text: String, color: Color) = Text(text, Modifier.padding(2.dp)
+                .background(Color(0xCC000000)).padding(6.dp), color = color, fontWeight = FontWeight.Bold)
+            if (ui.faceLostS >= 1f) chip("Face not found: check the phone mount", Color(0xFFFF6E6E))
+            if (ui.sunglasses) chip("Eye tracking limited: sunglasses", Color(0xFFFFD54F))
+            if (!ui.online && ui.mode == Mode.FULL) chip("Offline: local alerts only", Color.Yellow)
+        }
     }
 
     @Composable private fun Home(ui: UiState) {
@@ -160,6 +195,13 @@ class MainActivity : ComponentActivity() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(checked = ui.showDebug, onCheckedChange = { vm.toggleDebug() }); Text("  Debug overlay")
         }
+        Spacer(Modifier.height(8.dp))
+        Text("Test: force Model A output")
+        (listOf<String?>(null) + ActivityRules.APP_CLASSES).forEach { c ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = ui.forcedModelA == c, onClick = { vm.forceModelA(c) }); Text(c ?: "off")
+            }
+        }
     }
 
     @Composable private fun CalibrationPanel(ui: UiState) {
@@ -176,7 +218,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable private fun MonitoringPanel(ui: UiState) {
         Text("Monitoring", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(if (ui.raw?.faceFound == false) "Face not found — check the mount" else "Watching…")
+        Text(when {
+            ui.faceLostS >= 1f -> "Face not found: check the mount"
+            ui.sunglasses -> "Watching (eye tracking limited)…"
+            else -> "Watching…"
+        })
+        Spacer(Modifier.height(8.dp))
+        Text("Fatigue %.0f / 100: %s".format(ui.fatigue, FatigueScore.band(ui.fatigue)), fontSize = 14.sp)
+        LinearProgressIndicator(progress = { ui.fatigue / 100f }, modifier = Modifier.fillMaxWidth(),
+            color = when (FatigueScore.band(ui.fatigue)) { "drowsy" -> Color(0xFFE53935); "tiring" -> Color(0xFFFFA000); else -> Color(0xFF43A047) })
+        ui.forcedModelA?.let { Text("Test: Model A forced to $it", color = Color.Yellow, fontSize = 12.sp) }
         ui.alert?.let { Text("Last alert @%.0fs: %s (%s)".format(it.tS, it.message, it.source), fontSize = 13.sp) }
         Spacer(Modifier.height(12.dp))
         Button(onClick = { vm.stopMonitoring() }, modifier = Modifier.fillMaxWidth()) { Text("End trip") }
@@ -197,9 +248,22 @@ class MainActivity : ComponentActivity() {
 
     @Composable private fun SummaryPanel(ui: UiState) {
         Text("Trip summary", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        val rules = ui.events.filter { it.source == "rules" }
-        Text("Alerts: ${rules.size}")
-        rules.groupingBy { it.eventType }.eachCount().forEach { (k, n) -> Text("• $k × $n") }
+        val detected = ui.events.filter { it.source == "rules" || it.source == "model_a" }
+        val verified = ui.events.filter { it.source.startsWith("gemini") }
+        Text("Duration: %d min %02d s".format((ui.tripDurationS / 60).toInt(), (ui.tripDurationS % 60).toInt()))
+        Text("Peak fatigue: %.0f / 100 (%s)".format(ui.peakFatigue, FatigueScore.band(ui.peakFatigue)))
+        Text("Alerts: ${detected.size}")
+        detected.groupingBy { it.eventType }.eachCount().forEach { (k, n) -> Text("• $k × $n") }
+        if (verified.isNotEmpty()) {
+            val dismissed = verified.count { it.geminiEvent == "false_alarm" }
+            Text("Checked by Gemini: ${verified.size} (dismissed as false alarm: $dismissed)", fontSize = 13.sp)
+        }
+        val advice = when {
+            ui.peakFatigue > 60f || detected.any { it.level >= 3 } -> "Serious drowsiness was detected. Rest before your next drive."
+            ui.peakFatigue >= 30f -> "You showed some signs of fatigue. Take breaks on long drives."
+            else -> "No major fatigue signs on this trip."
+        }
+        Text(advice, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         Button(onClick = { ui.logPath?.let { shareLog(File(it)) } }) { Text("Export event log") }
         TextButton(onClick = { vm.go(Screen.HOME) }) { Text("Home") }

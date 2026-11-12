@@ -26,6 +26,7 @@ data class EngineState(
     val gazeAwayS: Float = 0f,
     val yawDelta: Float = 0f,
     val pitchDelta: Float = 0f,
+    val sunglasses: Boolean = false,
 )
 
 /**
@@ -50,6 +51,12 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
     private var gazeFired = false
 
     var state = EngineState(); private set
+
+    /**
+     * Degraded mode (task #18): set by SunglassesDetector. Eye-based events are not raised
+     * and PERCLOS is not updated while the eyes can't be measured; other rules keep running.
+     */
+    var sunglasses = false
 
     fun reset() {
         perclosWin.clear(); yawnTimes.clear(); nodTimes.clear(); blinkTimes.clear(); lastFired.clear()
@@ -82,13 +89,13 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
                 lastLevel.remove(EventType.EYE_CLOSURE_LONG)
             }
             val dur = (t - closeStart!!) / 1000f
-            if (!closureFired && !mouthOpen && dur >= th.longClosureS) {
+            if (!closureFired && !mouthOpen && !sunglasses && dur >= th.longClosureS) {
                 closureFired = true
                 val lvl = if (dur >= th.severeClosureS) 3 else 2
                 fire(EventType.EYE_CLOSURE_LONG, t, lvl, "closed %.1fs".format(dur))?.let(out::add)
             }
             // escalate to level 3 while still closed
-            if (closureFired && !mouthOpen && dur >= th.severeClosureS && (lastLevel[EventType.EYE_CLOSURE_LONG] ?: 0) < 3) {
+            if (closureFired && !mouthOpen && !sunglasses && dur >= th.severeClosureS && (lastLevel[EventType.EYE_CLOSURE_LONG] ?: 0) < 3) {
                 lastLevel[EventType.EYE_CLOSURE_LONG] = 3
                 out += DetectedEvent(EventType.EYE_CLOSURE_LONG, tS, 3, "closed %.1fs".format(dur))
             }
@@ -98,13 +105,13 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
             if (durMs / 1000f <= th.blinkMaxS) blinkTimes.addLast(t)
             closeStart = null
         }
-        perclosWin.addLast(t to closed)
+        if (!sunglasses) perclosWin.addLast(t to closed)
         val winMs = (th.perclosWindowS * 1000).toLong()
         while (perclosWin.isNotEmpty() && t - perclosWin.first().first > winMs) perclosWin.removeFirst()
         prune(blinkTimes, t, 10_000)
-        val perclos = perclosWin.count { it.second }.toFloat() / perclosWin.size
+        val perclos = if (perclosWin.isEmpty()) 0f else perclosWin.count { it.second }.toFloat() / perclosWin.size
         val windowFull = perclosWin.size > 1 && (t - perclosWin.first().first) >= winMs * 0.9
-        if (windowFull && perclos >= th.perclosHigh) {
+        if (!sunglasses && windowFull && perclos >= th.perclosHigh) {
             fire(EventType.PERCLOS_HIGH, t, 2, "perclos %.2f".format(perclos), refractoryS = 30f)?.let(out::add)
         }
 
@@ -129,7 +136,7 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
                 nodFired = true
                 nodTimes.addLast(t); prune(nodTimes, t, 300_000)
                 // labeling_guide: nod alone -> medium (level 2); nod while PERCLOS is high -> high (level 3).
-                val lvl = if (windowFull && perclos >= th.perclosHigh) 3 else 2
+                val lvl = if (!sunglasses && windowFull && perclos >= th.perclosHigh) 3 else 2
                 fire(EventType.NOD, t, lvl, "pitch %.0f".format(pitchDelta), refractoryS = 3f)?.let(out::add)
             }
         } else nodStart = null
@@ -152,7 +159,7 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
             perclos = perclos, blinks = blinkTimes.size,
             longestClosureS = maxOf(longestClosureMs, closeStart?.let { t - it } ?: 0L) / 1000f,
             yawns5min = yawnTimes.size, nods5min = nodTimes.size, gazeAwayS = gazeAwayS,
-            yawDelta = yawDelta, pitchDelta = pitchDelta,
+            yawDelta = yawDelta, pitchDelta = pitchDelta, sunglasses = sunglasses,
         )
         return out
     }

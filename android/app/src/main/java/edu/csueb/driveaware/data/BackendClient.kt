@@ -40,7 +40,7 @@ class BackendClient(private val baseUrl: String = BuildConfig.BACKEND_URL, priva
     fun verify(
         tripId: String, tS: Float, trigger: String, level: Int, s: EngineState,
         modelAClass: String?, modelAConf: Float?, handOccupied: Boolean, sunglasses: Boolean,
-        keyframe: Bitmap?,
+        keyframe: Bitmap?, fatigueScore: Float? = null,
     ): Verdict? {
         if (!configured) return null
         val signals = JSONObject()
@@ -50,6 +50,7 @@ class BackendClient(private val baseUrl: String = BuildConfig.BACKEND_URL, priva
             .put("gaze_away_s", s.gazeAwayS.toDouble())
             .put("yaw_deg", s.yawDelta.toDouble()).put("pitch_deg", s.pitchDelta.toDouble())
             .put("hand_occupied", handOccupied).put("sunglasses", sunglasses)
+        fatigueScore?.let { signals.put("fatigue_score", it.toDouble()) }
         if (modelAClass != null) signals.put("model_a_class", modelAClass).put("model_a_conf", (modelAConf ?: 0f).toDouble())
         val body = JSONObject().put("trip_id", tripId).put("t_s", tS.toDouble())
             .put("trigger", trigger).put("level", level).put("signals", signals)

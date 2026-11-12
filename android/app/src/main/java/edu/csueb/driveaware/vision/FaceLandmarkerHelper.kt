@@ -14,6 +14,7 @@ import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
+import edu.csueb.driveaware.signals.EyeRegion
 import edu.csueb.driveaware.signals.FaceSignals
 import edu.csueb.driveaware.signals.FrameSignals
 import edu.csueb.driveaware.signals.HeadPose
@@ -108,11 +109,28 @@ class FaceLandmarkerHelper(
         val blink = (shape("eyeBlinkLeft") + shape("eyeBlinkRight")) / 2f
         val pose = result.facialTransformationMatrixes().orElse(null)?.firstOrNull()
             ?.let { FaceSignals.headPose(it) } ?: HeadPose(0f, 0f, 0f)
+        val (bright, sharp) = eyeStats(bmp, lm)
         onFrame(
-            FrameSignals(t, true, FaceSignals.meanEar(lm, aspect), FaceSignals.mar(lm, aspect), jaw, blink, pose),
+            FrameSignals(t, true, FaceSignals.meanEar(lm, aspect), FaceSignals.mar(lm, aspect), jaw, blink, pose,
+                bright, sharp),
             result, bmp,
         )
     }
+
+    /** Brightness + sharpness of a box around both eyes, for the sunglasses check (#18). */
+    private fun eyeStats(bmp: Bitmap, lm: List<Pt>): Pair<Float, Float> = runCatching {
+        val idx = FaceSignals.LEFT_EYE + FaceSignals.RIGHT_EYE
+        val xs = idx.map { lm[it].x * bmp.width }; val ys = idx.map { lm[it].y * bmp.height }
+        val padX = (xs.max() - xs.min()) * 0.15f; val padY = (ys.max() - ys.min() + 1f) * 0.6f
+        val x0 = (xs.min() - padX).toInt().coerceIn(0, bmp.width - 1)
+        val y0 = (ys.min() - padY).toInt().coerceIn(0, bmp.height - 1)
+        val x1 = (xs.max() + padX).toInt().coerceIn(x0 + 1, bmp.width)
+        val y1 = (ys.max() + padY).toInt().coerceIn(y0 + 1, bmp.height)
+        val w = x1 - x0; val h = y1 - y0
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, x0, y0, w, h)
+        EyeRegion.stats(px, w, h)
+    }.getOrDefault(-1f to -1f)
 
     fun close() = runCatching { landmarker.close() }
 
