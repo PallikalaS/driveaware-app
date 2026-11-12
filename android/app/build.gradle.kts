@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -15,7 +17,7 @@ android {
         versionName = "0.4.0"
         // Cloud Run URL: put  backendUrl=https://...run.app  in android/local.properties
         // (not committed). findProperty() alone does not read local.properties.
-        val localProps = java.util.Properties().apply {
+        val localProps = Properties().apply {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
         }
         val backendUrl = ((project.findProperty("backendUrl") as String?)
