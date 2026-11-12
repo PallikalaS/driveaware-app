@@ -1,4 +1,4 @@
-# DriveAware — app
+# DriveAware - app
 
 Android app that watches the driver through the front camera and warns about drowsiness and
 distraction. CS663 Computer Vision, Project 2 (group: Swathi, Mahitha, Bindu, Vanessa).
@@ -6,7 +6,7 @@ Model development code: [`driveaware-models`](../driveaware-models).
 
 📄 Documentation Report PDF: _link after Canvas upload_ · 🎬 Demo video: _YouTube link_
 
-## Architecture
+## Architecture 
 
 ```
 Front camera (CameraX 640×480, live) ──► Model C: MediaPipe Face Landmarker   [on device, pretrained]
