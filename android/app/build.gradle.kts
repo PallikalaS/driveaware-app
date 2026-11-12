@@ -11,10 +11,15 @@ android {
         applicationId = "edu.csueb.driveaware"
         minSdk = 26            // Pixel 6 / Android 12 test phone is API 31
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
-        // Cloud Run URL, set in local.properties or CI:  backendUrl=https://...run.app
-        val backendUrl = (project.findProperty("backendUrl") as String?) ?: ""
+        versionCode = 4
+        versionName = "0.4.0"
+        // Cloud Run URL: put  backendUrl=https://...run.app  in android/local.properties
+        // (not committed). findProperty() alone does not read local.properties.
+        val localProps = java.util.Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+        }
+        val backendUrl = ((project.findProperty("backendUrl") as String?)
+            ?: localProps.getProperty("backendUrl") ?: "").trim().trimEnd('/')
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
     }
     buildFeatures { compose = true; buildConfig = true }

@@ -22,6 +22,21 @@ class BackendClient(private val baseUrl: String = BuildConfig.BACKEND_URL, priva
 
     val configured get() = baseUrl.isNotBlank()
 
+    /**
+     * Cloud Run scales to zero, so the first call after idle takes 3–4 s (cold start)
+     * and can hit the 4 s timeout. Called when a trip starts so the server is warm
+     * before the first event. Returns true if the backend answered.
+     */
+    fun warmUp(): Boolean {
+        if (!configured) return false
+        return try {
+            val c = (URL("$baseUrl/health").openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10_000; readTimeout = 10_000
+            }
+            c.responseCode == 200
+        } catch (_: Exception) { false }
+    }
+
     fun verify(
         tripId: String, tS: Float, trigger: String, level: Int, s: EngineState,
         modelAClass: String?, modelAConf: Float?, handOccupied: Boolean, sunglasses: Boolean,
