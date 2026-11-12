@@ -2,7 +2,7 @@
 
 POST /verify   keyframe + 10 s signal summary  -> tuned-Gemini verdict (JSON)
 POST /summary  trip events                      -> trip summary
-GET  /healthz
+GET  /health    (not /healthz: Cloud Run reserves paths ending in "z")
 
 The phone never holds a key: Cloud Run runs as a least-privilege service
 account with roles/aiplatform.user; the app calls this URL.
@@ -79,8 +79,8 @@ def check_token(token: str | None):
         raise HTTPException(status_code=401, detail="bad token")
 
 
-@app.get("/healthz")
-def healthz():
+@app.get("/health")
+def health():
     return {"ok": True, "model": os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
             "location": os.getenv("VERTEX_LOCATION", "us")}
 

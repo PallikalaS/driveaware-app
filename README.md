@@ -43,7 +43,7 @@ android/            Kotlin + Compose app (CameraX, MediaPipe Tasks)
     data/           EventLogger (CSV for match_events.py), SettingsStore, AlertManager, BackendClient
     ui/             MonitorViewModel (fusion, modes)
     MainActivity.kt Home · Calibration · Monitoring · Settings · Trip Summary
-backend/            FastAPI for Cloud Run: /verify, /summary, /healthz
+backend/            FastAPI for Cloud Run: /verify, /summary, /health
 tests/scripts/      Vanessa's scripted test-session CSVs (S01.csv … S08.csv)
 reports/            weekly progress reports
 docs/               architecture diagram, screenshots for the report
