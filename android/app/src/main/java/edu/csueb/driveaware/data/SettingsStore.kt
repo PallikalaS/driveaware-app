@@ -13,6 +13,7 @@ class SettingsStore(context: Context) {
         val d = defaults
         return Thresholds(
             earClosedRatio = p.getFloat("earClosedRatio", d.earClosedRatio),
+            blinkScoreClosed = p.getFloat("blinkScoreClosed", d.blinkScoreClosed),
             longClosureS = p.getFloat("longClosureS", d.longClosureS),
             severeClosureS = p.getFloat("severeClosureS", d.severeClosureS),
             perclosHigh = p.getFloat("perclosHigh", d.perclosHigh),
@@ -39,6 +40,7 @@ class SettingsStore(context: Context) {
     /** Editable in the Settings screen: key, label, min, max. */
     val editable = listOf(
         Triple("earClosedRatio", "Eye closed ratio (× baseline EAR)", 0.5f to 0.9f),
+        Triple("blinkScoreClosed", "Eye closed: blink score ≥", 0.2f to 0.9f),
         Triple("longClosureS", "Long eye closure (s)", 0.5f to 2.5f),
         Triple("severeClosureS", "Severe closure → level 3 (s)", 1.0f to 3.0f),
         Triple("perclosHigh", "PERCLOS high (fraction)", 0.05f to 0.40f),
