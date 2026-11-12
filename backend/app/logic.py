@@ -131,10 +131,12 @@ def apply_authority_rule(req: VerifyRequest, v: GeminiVerdict) -> tuple[GeminiVe
         return template_verdict(req), True
     s = req.signals
     eye_trigger = req.trigger in ("eye_closure_long", "perclos_high")
+    # When severity is corrected, the message must match it too (Gemini's own
+    # sentence was written for its lower/higher severity), so use the template.
     if req.trigger == "eye_closure_long" and not s.sunglasses and v.severity != "high":
-        return v.model_copy(update={"event": "drowsy", "severity": "high", "action": "pull_over_now"}), True
+        return template_verdict(req), True
     if s.sunglasses and eye_trigger and v.severity == "high":
-        return v.model_copy(update={"severity": "medium", "action": "take_break_soon"}), True
+        return template_verdict(req), True
     return v, False
 
 
