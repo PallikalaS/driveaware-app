@@ -49,3 +49,17 @@ def test_cooldown():
 def test_prompt_is_stable():
     p = build_prompt("yawn", 1, SignalSummary(perclos=0.12, yawns_5min=2))
     assert p.startswith("Signals (last 10 s): trigger=yawn level=1 perclos=0.12")
+
+
+def test_override_message_matches_corrected_severity():
+    # Seen on Cloud Run: Gemini said medium "take a short break"; override raised it
+    # to high/pull_over_now but kept the soft message. Message must match the action.
+    from app.logic import apply_authority_rule, TEMPLATES
+    from app.schema import GeminiVerdict, SignalSummary, VerifyRequest
+    req = VerifyRequest(trip_id="t", t_s=42, trigger="eye_closure_long", level=3,
+                        signals=SignalSummary(perclos=0.22, longest_closure_s=1.4))
+    g = GeminiVerdict(event="drowsy", confirmed="yes", severity="medium",
+                      message="You seem tired. Please take a short break to rest.", action="take_break_soon")
+    v, overridden = apply_authority_rule(req, g)
+    assert overridden and v.severity == "high" and v.action == "pull_over_now"
+    assert v.message == TEMPLATES[("drowsy", "high")][0]
