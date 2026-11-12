@@ -23,6 +23,8 @@ class SettingsStore(context: Context) {
             gazeYawDeg = p.getFloat("gazeYawDeg", d.gazeYawDeg),
             gazeMaxS = p.getFloat("gazeMaxS", d.gazeMaxS),
             activityConf = p.getFloat("activityConf", d.activityConf),
+            activityFrac = p.getFloat("activityFrac", d.activityFrac),
+            sunglassesHoldS = p.getFloat("sunglassesHoldS", d.sunglassesHoldS),
             sunglassesBrightness = p.getFloat("sunglassesBrightness", d.sunglassesBrightness),
             sunglassesLaplacian = p.getFloat("sunglassesLaplacian", d.sunglassesLaplacian),
         )
@@ -50,7 +52,9 @@ class SettingsStore(context: Context) {
         Triple("gazeYawDeg", "Gaze away yaw (°)", 15f to 60f),
         Triple("gazeMaxS", "Gaze away time (s)", 1f to 5f),
         Triple("activityConf", "Model A confidence", 0.3f to 0.95f),
+        Triple("activityFrac", "Model A: share of frames over 2 s", 0.4f to 1.0f),
         Triple("sunglassesBrightness", "Sunglasses: eye brightness", 10f to 120f),
         Triple("sunglassesLaplacian", "Sunglasses: eye sharpness", 5f to 100f),
+        Triple("sunglassesHoldS", "Sunglasses: hold time (s)", 1f to 6f),
     )
 }

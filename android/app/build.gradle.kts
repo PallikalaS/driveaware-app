@@ -13,8 +13,8 @@ android {
         applicationId = "edu.csueb.driveaware"
         minSdk = 26            // Pixel 6 / Android 12 test phone is API 31
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
         // Cloud Run URL: put  backendUrl=https://...run.app  in android/local.properties
         // (not committed). findProperty() alone does not read local.properties.
         val localProps = Properties().apply {
