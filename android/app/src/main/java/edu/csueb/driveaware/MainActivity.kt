@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
                                 Screen.MONITORING -> MonitoringPanel(ui)
                                 Screen.SETTINGS -> SettingsPanel()
                                 Screen.SUMMARY -> SummaryPanel(ui)
+                                Screen.TEST -> TestPanel(ui)
                             }
                         }
                     }
@@ -147,6 +148,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable private fun BoxScope.AlertBanner(ui: UiState) {
+        if (ui.screen != Screen.MONITORING) return   // don't leave the last trip's alert on other screens
         val a = ui.alert ?: return
         val bg = when (a.level) { 3 -> Color(0xEECC0000); 2 -> Color(0xEEE08000); else -> Color(0xCC1565C0) }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(bg).padding(16.dp)) {
@@ -185,7 +187,17 @@ class MainActivity : ComponentActivity() {
         ) { Text(if (sessionId.isBlank()) "Start trip" else "Start $sessionId") }
         OutlinedButton(onClick = { vm.startCalibration() }, modifier = Modifier.fillMaxWidth()) { Text("Calibrate (10 s)") }
         OutlinedButton(onClick = { vm.go(Screen.SETTINGS) }, modifier = Modifier.fillMaxWidth()) { Text("Settings") }
-        Spacer(Modifier.height(12.dp))
+        OutlinedButton(onClick = { vm.go(Screen.TEST) }, modifier = Modifier.fillMaxWidth()) { Text("Test options") }
+        // Show non-default test settings on Home so nobody runs a trip with them by mistake.
+        if (ui.mode != Mode.FULL) Text("Test mode: ${ui.mode.csv}", color = Color.Yellow, fontSize = 13.sp)
+        ui.forcedModelA?.let { Text("Model A forced to $it", color = Color.Yellow, fontSize = 13.sp) }
+    }
+
+    @Composable private fun TestPanel(ui: UiState) {
+        Row(verticalAlignment = Alignment.CenterVertically) {   // Done at the top: the list is long in landscape
+            Text("Test options", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Button(onClick = { vm.go(Screen.HOME) }) { Text("Done") }
+        }
         Text("Test mode (ablation)")
         Mode.entries.forEach { m ->
             Row(verticalAlignment = Alignment.CenterVertically) {
