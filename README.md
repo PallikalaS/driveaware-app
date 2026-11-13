@@ -75,4 +75,165 @@ GCP_PROJECT=driveaware-cs663-swathi GEMINI_MODEL=<tuned-endpoint> bash deploy.sh
   Alert screen polish, trip summary via `/summary`
 
 ## Project 2 guidelines checklist
-_Vanessa: turn every guideline requirement into a checklist here (task #5)._
+
+This checklist tracks the Project 2 course requirements and final deliverables. The full course guidelines are the source of truth. Check each item only after the work is completed and verified.
+
+### 1. Mobile Application Requirements
+
+- [ ] Build and demonstrate a real Android mobile application using live camera input, not a Colab-only application. (Swathi)
+- [ ] Allow the user to start and control the monitoring session. (Swathi)
+- [ ] Show that the application is processing camera input and displaying results. (Swathi)
+- [ ] Provide useful results and alerts that allow the user to take action. (Swathi)
+- [ ] Handle situations where the system cannot determine an answer, including face not found, limited eye tracking, and offline operation. (Swathi)
+- [ ] Include meaningful user interaction and recovery options, not only object or activity recognition. (Swathi)
+- [ ] Document where each model runs: on the phone or in the cloud. (Swathi and Bindu)
+
+### 2. Three-Model Architecture
+
+- [ ] Integrate all three models into one working system. (Swathi)
+- [ ] Model A: document the trained or fine-tuned EfficientNet-Lite0 activity classifier. (Mahitha and Bindu)
+- [ ] Model B: document the fine-tuned Gemini multimodal model and its responsibility. (Bindu and Swathi)
+- [ ] Model C: document the pretrained MediaPipe Face Landmarker and its responsibility. (Bindu and Swathi)
+- [ ] Explain why each model is needed and what its specific job is. (Bindu)
+- [ ] Document each model's exact name, purpose, input, output, location, customization, and next step. (Bindu)
+- [ ] Include the final system architecture diagram in the documentation report. (Mahitha and Bindu)
+- [ ] Show the camera input, preprocessing, all three models, information passed between components, backend, application logic, and user output in the architecture diagram. (Mahitha and Swathi)
+
+### 3. Data Collection and Documentation
+
+- [ ] Document the data sources used for Model A and Model B. (Mahitha)
+- [ ] Document how the data was collected and how many examples were used. (Mahitha and Bindu)
+- [ ] Document the data format, labels, preprocessing, and train/validation/test splits for each trained or fine-tuned model. (Mahitha)
+- [ ] Document dataset limitations, possible biases, and other relevant restrictions. (Mahitha)
+- [ ] Include the team's application-specific data. (Mahitha)
+- [ ] Keep held-out test subjects separate from training, validation, and threshold tuning. (Everyone)
+- [ ] Make sure final test examples are not used to train or fine-tune either model. (Everyone)
+- [ ] Include the Data Documentation in the final report. (Mahitha and Bindu)
+
+### 4. Model A and Model B Evaluation
+
+- [ ] Evaluate Model A using the held-out test data. (Bindu)
+- [ ] Report Model A accuracy, precision, recall, F1, macro-F1, and confusion matrices. (Bindu)
+- [ ] Include Model A training and validation loss and accuracy curves. (Mahitha and Bindu)
+- [ ] Compare the fully fine-tuned Model A against the CLIP zero-shot and frozen-backbone EfficientNet-Lite0 baselines using the same test set. (Bindu)
+- [ ] Include successful and failed Model A examples with explanations. (Bindu)
+- [ ] Include Model A results broken down by relevant conditions, including lighting and eyewear. (Bindu)
+- [ ] Evaluate Model B using held-out test examples. (Bindu)
+- [ ] Compare base Gemini against fine-tuned Gemini. (Bindu)
+- [ ] Report Model B event accuracy, macro-F1, severity accuracy, confusion matrix, false-alarm rejection rate, valid-JSON rate, message length, and latency. (Bindu)
+- [ ] Include Gemini tuning results and loss curves. (Swathi and Bindu)
+- [ ] Include successful and failed Gemini examples with explanations. (Bindu)
+
+### 5. Full-System Testing and Evaluation
+
+- [ ] Test the complete application using the eight planned sessions and held-out members. (Vanessa)
+- [ ] Record the sessions in a parked car or with the subject as a non-driving passenger. (Vanessa)
+- [ ] Keep the application and event logging enabled during each session. (Vanessa)
+- [ ] Export each event log to Test_sessions/ and run the matching script against the corresponding session CSV. (Vanessa and Swathi)
+- [ ] Report precision and recall for each behavior. (Vanessa)
+- [ ] Report false alarms per 10 minutes of normal driving. (Vanessa)
+- [ ] Report detection delay. (Vanessa)
+- [ ] Measure on-device FPS and battery use. (Swathi)
+- [ ] Measure Gemini round-trip time. (Vanessa and Swathi)
+- [ ] Perform ablation testing on three sessions using rules only, rules plus Model A, and the full system. (Vanessa)
+- [ ] Perform error-injection testing using the force Model A output option and record whether the rules or Gemini catch the incorrect output. (Vanessa)
+- [ ] Record the first stage responsible for every missed or false alert. (Vanessa)
+- [ ] Include the failure-source bar chart. (Vanessa)
+- [ ] Explain error propagation, the components that fail most often, system response time, and how the system handles incorrect model outputs. (Vanessa and Bindu)
+- [ ] Include system-testing results, successful examples, failed examples, and limitations in the report. (Vanessa and Bindu)
+
+### 6. Real-World Camera Testing
+
+- [ ] Test relevant lighting conditions, including daytime and nighttime. (Vanessa)
+- [ ] Test relevant eyewear conditions, including no glasses, clear glasses, and sunglasses. (Vanessa)
+- [ ] Test both camera mounting angles. (Vanessa)
+- [ ] Test partial face occlusions, including a hand, hat brim, and mask. (Vanessa)
+- [ ] Include previously unseen held-out subjects and examples. (Vanessa)
+- [ ] Show all three alert levels during testing and the demonstration. (Vanessa)
+- [ ] Include at least one honest system failure in the demonstration and explain it. (Vanessa)
+- [ ] Discuss the conditions where the system works and where it has limitations. (Vanessa and Bindu)
+
+### 7. GitHub, Project Management, and Weekly Progress
+
+- [ ] Maintain the mobile application repository, driveaware-app. (Swathi)
+- [ ] Maintain the model development repository, driveaware-models. (Swathi)
+- [ ] Include source code, training and evaluation code, data preparation code, and technical documentation in the appropriate repositories. (Swathi)
+- [ ] Maintain GitHub Issues and the Project board with task owners and statuses. (Vanessa)
+- [ ] Maintain meaningful commit history showing each member's contributions. (Everyone)
+- [ ] Keep weekly progress reports showing completed work, outstanding work, and links to relevant Issues or commits. (Everyone; Vanessa coordinates the report)
+- [ ] Make each member's individual contributions identifiable. (Everyone)
+- [ ] Include setup and reproduction instructions in the repositories. (Swathi)
+
+### 8. Final Documentation Report
+
+- [ ] Project Overview. (Bindu)
+- [ ] Response to proposal feedback. (Bindu)
+- [ ] System Architecture. (Mahitha and Bindu)
+- [ ] Installation and Setup. (Swathi and Bindu)
+- [ ] Data Documentation. (Mahitha and Bindu)
+- [ ] Model A Specifications and Results. (Mahitha and Bindu)
+- [ ] Model B Gemini Fine-Tuning Specifications and Results. (Bindu and Swathi)
+- [ ] Additional Model Specifications for Model C. (Bindu and Swathi)
+- [ ] Mobile Application GUI and Specifications, including screenshots. (Vanessa and Bindu)
+- [ ] Cloud and Backend Specifications. (Swathi and Bindu)
+- [ ] Testing and Evaluation. (Vanessa)
+- [ ] Results Discussion, including successes, failures, limitations, and system performance. (Vanessa and Bindu)
+- [ ] Instructions for Reproducing the System. (Swathi and Bindu)
+- [ ] Include the required data, model, and system evaluation results, graphs, screenshots, and failure examples. (Everyone)
+- [ ] Collect all team sections into one report draft and review it. (Bindu)
+- [ ] Export the final Documentation Report as a PDF and upload it to Canvas. (Bindu)
+- [ ] Link the final report from the driveaware-app README. (Bindu)
+
+### 9. Final Presentation
+
+- [ ] Problem. (Mahitha)
+- [ ] Users. (Mahitha)
+- [ ] Architecture. (Mahitha)
+- [ ] Models. (Mahitha)
+- [ ] Data. (Mahitha)
+- [ ] Training and Fine-Tuning. (Mahitha)
+- [ ] Mobile Application. (Mahitha)
+- [ ] Evaluation. (Mahitha and Vanessa)
+- [ ] Results. (Mahitha and Vanessa)
+- [ ] Failures. (Mahitha and Vanessa)
+- [ ] Lessons Learned. (Mahitha)
+- [ ] Add the final results from Bindu and Vanessa. (Mahitha)
+- [ ] Explain the project sections to the team and prepare for the presentation and demo. (Swathi)
+- [ ] Rehearse the presentation with the team and submit the final slides. (Mahitha)
+
+### 10. Demonstration Video
+
+- [ ] Use the actual Android application with live camera input. (Vanessa)
+- [ ] Demonstrate held-out members and previously unseen examples. (Vanessa)
+- [ ] Show all three alert levels. (Vanessa)
+- [ ] Show sunglasses mode and its behavior. (Vanessa)
+- [ ] Show offline operation. (Vanessa)
+- [ ] Show the trip summary. (Vanessa)
+- [ ] Include one honest failure. (Vanessa)
+- [ ] Do not show notebooks or source code in the demonstration. (Vanessa)
+- [ ] Edit and narrate the final demonstration video. (Vanessa)
+- [ ] Upload the video to YouTube as Unlisted. (Vanessa)
+- [ ] Add the video link to the README and final report. (Vanessa)
+
+### 11. Final Repository and Project Handover
+
+- [ ] Include the final Android application source code repository URL. (Swathi)
+- [ ] Include the model development repository URL, including Model A training, Gemini fine-tuning, evaluation, and data preparation code. (Swathi)
+- [ ] Include setup and reproduction notes in both repository READMEs. (Swathi)
+- [ ] Fix bugs reported as GitHub Issues during system testing and release the final APK. (Swathi)
+- [ ] Confirm the final report and demonstration video links are included in the app repository README. (Bindu and Vanessa)
+- [ ] After grading, undeploy the tuned Gemini endpoint and Cloud Run service. (Swathi)
+
+### 12. Requirements to Verify
+
+The following items need to be checked against the course guidelines and the team's completed work. Do not assume they are complete just because related tasks are listed.
+
+- [ ] Confirm that the project has instructor approval if approval is required. (Team)
+- [ ] Confirm that the final architecture diagram is included in both the proposal and final report. (Mahitha and Bindu)
+- [ ] Explain why each image-processing and preprocessing step is used, including cropping, resizing, and temporal processing. (Swathi and Mahitha)
+- [ ] Confirm that every model's input, output, location, customization, and next step are documented. (Bindu)
+- [ ] Confirm that data limitations, biases, sources, and splits are documented for both trained or fine-tuned models. (Mahitha and Bindu)
+- [ ] Confirm that held-out test data was not used for training, fine-tuning, or threshold tuning. (Everyone)
+- [ ] Confirm that the report explains how the application handles uncertain results, incorrect predictions, and component failures. (Vanessa and Bindu)
+- [ ] Confirm that the final report includes system response time, FPS, battery use, and Gemini latency where required. (Vanessa, Swathi, and Bindu)
+- [ ] Confirm that the final results include both successful and failed examples, not only successful demonstrations. (Everyone)
