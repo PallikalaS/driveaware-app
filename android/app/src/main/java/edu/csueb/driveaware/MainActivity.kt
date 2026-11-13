@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
         if (!hasCamera) requestCamera()
         landmarker = FaceLandmarkerHelper(
             this,
-            onFrame = { f, _, bmp -> vm.onFrame(f, bmp) },
+            onFrame = { f, r, bmp -> vm.onFrame(f, bmp, r?.faceLandmarks()?.firstOrNull() ?: emptyList()) },
             onError = { msg -> vm.onModelError(msg) },
         ).also { vm.setDelegate(it.delegateName) }
         setContent {
@@ -139,8 +139,10 @@ class MainActivity : ComponentActivity() {
                 appendLine("yawΔ %.0f  pitchΔ %.0f  nods5m %d  gaze %.1fs".format(e.yawDelta, e.pitchDelta, e.nods5min, e.gazeAwayS))
                 appendLine("eyes b%.0f s%.0f  sunglasses %s  fatigue %.0f".format(r?.eyeBrightness ?: -1f, r?.eyeSharpness ?: -1f,
                     if (ui.sunglasses) "YES" else "no", ui.fatigue))
-                appendLine("ModelA %s".format(ui.modelA?.let { "%s %.2f".format(it.appClass, it.conf) }
-                    ?: if (ui.mode == Mode.RULES_ONLY) "off (rules only)" else "none"))
+                appendLine("ModelA %s  [%s]".format(ui.modelA?.let { "%s %.2f".format(it.appClass, it.conf) }
+                    ?: if (ui.mode == Mode.RULES_ONLY) "off (rules only)" else "none",
+                    when { ui.forcedModelA != null -> "forced"; ui.modelALoaded -> "model_a_v1"; else -> "no model" }))
+                ui.modelAError?.let { appendLine("⚠ $it") }
             },
             Modifier.padding(8.dp).background(Color(0x99000000)).padding(6.dp),
             color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
