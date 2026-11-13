@@ -32,6 +32,10 @@ class SettingsStore(context: Context) {
 
     fun setFloat(key: String, v: Float) = p.edit().putFloat(key, v).apply()
 
+    /** One line about the last trip, shown on Home (proposal screen 1). */
+    fun lastTrip(): String? = p.getString("lastTrip", null)
+    fun saveLastTrip(s: String) = p.edit().putString("lastTrip", s).apply()
+
     fun baseline(): Baseline? =
         if (!p.contains("baseEar")) null
         else Baseline(p.getFloat("baseEar", 0.28f), p.getFloat("baseYaw", 0f), p.getFloat("basePitch", 0f))

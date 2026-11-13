@@ -45,5 +45,8 @@ class AlertManager(context: Context) : TextToSpeech.OnInitListener {
         if (ttsReady) tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "driveaware")
     }
 
+    /** Driver tapped I'M OK: silence the current alert. */
+    fun stop() { tts.stop(); tone.stopTone(); vibrator.cancel() }
+
     fun close() { tts.shutdown(); tone.release() }
 }

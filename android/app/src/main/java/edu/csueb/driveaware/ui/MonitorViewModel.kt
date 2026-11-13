@@ -31,7 +31,8 @@ enum class Screen { HOME, CALIBRATION, MONITORING, SETTINGS, SUMMARY, TEST }
 /** Ablation switch used in system tests (Vanessa). */
 enum class Mode(val csv: String) { RULES_ONLY("rules"), RULES_MODEL_A("rules_model_a"), FULL("full") }
 
-data class UiAlert(val level: Int, val message: String, val source: String, val tS: Float)
+/** kind: "fatigue" (amber) or "distraction" (blue); level 3 is always red (proposal section 9). */
+data class UiAlert(val level: Int, val message: String, val source: String, val tS: Float, val kind: String = "fatigue")
 
 data class UiState(
     val screen: Screen = Screen.HOME,
@@ -60,6 +61,13 @@ data class UiState(
     val tripDurationS: Float = 0f,
     val modelALoaded: Boolean = false,
     val modelAError: String? = null,
+    // proposal screens 1, 4, 5
+    val checking: Boolean = false,                         // Gemini is checking an event (spinner)
+    val fatigueTrace: List<Pair<Float, Float>> = emptyList(), // (t_s, fatigue) once a second, for the chart
+    val tripNote: String? = null,
+    val tripNoteSource: String? = null,
+    val tripNoteLoading: Boolean = false,
+    val lastTrip: String? = null,
 )
 
 class MonitorViewModel(app: Application) : AndroidViewModel(app) {
@@ -78,7 +86,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     private var lastFrameMs = 0L
     private var latestFrame: Bitmap? = null
 
-    private val _ui = MutableStateFlow(UiState(calibrated = settings.baseline() != null))
+    private val _ui = MutableStateFlow(UiState(calibrated = settings.baseline() != null, lastTrip = settings.lastTrip()))
     val ui: StateFlow<UiState> = _ui
     // Model A (#25), after _ui exists: loaded from assets/model_a_v1.tflite if it's there
     private val modelA: ModelAClassifier?
@@ -113,14 +121,37 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         monitorStartMs = 0
         _ui.update { it.copy(screen = Screen.MONITORING, alert = null, logPath = logger.file?.absolutePath,
             events = emptyList(), online = backend.configured, sunglasses = false, fatigue = 0f,
-            peakFatigue = 0f, faceLostS = 0f, modelA = null, tripDurationS = 0f) }
+            peakFatigue = 0f, faceLostS = 0f, modelA = null, tripDurationS = 0f, fatigueTrace = emptyList(),
+            checking = false) }
         if (backend.configured) viewModelScope.launch(Dispatchers.IO) {
             val ok = backend.warmUp()
             _ui.update { it.copy(online = ok) }
         }
     }
 
-    fun stopMonitoring() = _ui.update { it.copy(screen = Screen.SUMMARY, events = logger.rows()) }
+    fun stopMonitoring() {
+        val rows = logger.rows()
+        val u = _ui.value
+        val nAlerts = rows.count { (it.source == "rules" || it.source == "model_a") && it.level >= 1 }
+        val line = "%d min, %d alert%s, peak fatigue %.0f".format(
+            (u.tripDurationS / 60).toInt(), nAlerts, if (nAlerts == 1) "" else "s", u.peakFatigue)
+        settings.saveLastTrip(line)
+        _ui.update { it.copy(screen = Screen.SUMMARY, events = rows, alert = null, checking = false,
+            tripNote = null, tripNoteSource = null, tripNoteLoading = backend.configured, lastTrip = line) }
+        alerts.stop()
+        if (backend.configured) viewModelScope.launch(Dispatchers.IO) {
+            val note = backend.summary(tripId, u.tripDurationS, rows, u.peakFatigue)
+            _ui.update { it.copy(tripNote = note?.text, tripNoteSource = note?.source ?: "offline", tripNoteLoading = false) }
+        }
+    }
+
+    /** Alert screen I'M OK (proposal screen 4): silence and clear the alert, log the tap. */
+    fun acknowledgeAlert() {
+        if (_ui.value.alert == null) return
+        alerts.stop()
+        logger.log(EventLogger.Row(_ui.value.tripDurationS, "driver_ok", 0, "driver", _ui.value.mode.csv))
+        _ui.update { it.copy(alert = null) }
+    }
 
     /** Called on the camera analyzer thread for every processed frame. */
     /** Face-model errors are shown on the debug overlay instead of failing silently. */
@@ -172,7 +203,11 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
                 val st = engine.state
                 val fatigue = FatigueScore.compute(st.perclos, st.nods5min, st.yawns5min,
                     activity.faceTouches5min(), sun, engine.th)
+                val tS = rel.tMs / 1000f
+                val trace = _ui.value.fatigueTrace
+                val newTrace = if (trace.isEmpty() || tS - trace.last().first >= 1f) trace + (tS to fatigue) else trace
                 _ui.update { it.copy(engine = st, raw = f, fps = fps, sunglasses = sun, fatigue = fatigue,
+                    fatigueTrace = newTrace,
                     peakFatigue = maxOf(it.peakFatigue, fatigue), modelA = activity.latest,
                     faceLostS = faceLostSinceMs?.let { s -> (rel.tMs - s) / 1000f } ?: 0f,
                     tripDurationS = rel.tMs / 1000f) }
@@ -187,7 +222,8 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         val local = localMessage(e.type, e.level)
         // Level 3 fires locally first; Gemini never delays it.
         if (e.level >= 3) alerts.fire(3, local)
-        _ui.update { it.copy(alert = UiAlert(e.level, local, "local", e.tS)) }
+        val kind = if (e.type in DISTRACTION_EVENTS) "distraction" else "fatigue"
+        _ui.update { it.copy(alert = UiAlert(e.level, local, "local", e.tS, kind)) }
         val a = activity.latest?.takeIf { e.type in ACTIVITY_EVENTS }
         logger.log(EventLogger.Row(e.tS, e.type.csv, e.level, if (a != null) "model_a" else "rules", mode.csv,
             modelAClass = a?.appClass, modelAConf = a?.conf, fps = fps))
@@ -195,9 +231,11 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         if (mode != Mode.FULL) { if (e.level < 3) alerts.fire(e.level, local); return }
         val state = engine.state
         val frame = latestFrame
+        _ui.update { it.copy(checking = true) }
         viewModelScope.launch(Dispatchers.IO) {
-            val v = backend.verify(tripId, e.tS, e.type.csv, e.level, state, a?.appClass, a?.conf,
+            val v = try { backend.verify(tripId, e.tS, e.type.csv, e.level, state, a?.appClass, a?.conf,
                 activity.handOccupied((e.tS * 1000).toLong()), state.sunglasses, frame, _ui.value.fatigue)
+            } finally { _ui.update { it.copy(checking = false) } }
             engine.resetWindowStats()
             if (v == null) {
                 _ui.update { it.copy(online = false) }
@@ -212,7 +250,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
             if (dismissed) { _ui.update { it.copy(alert = null) }; return@launch }
             val lvl = maxOf(e.level, when (v.severity) { "high" -> 3; "medium" -> 2; else -> 1 })
             if (e.level >= 3) alerts.say(v.message) else alerts.fire(lvl, v.message)
-            _ui.update { it.copy(alert = UiAlert(lvl, v.message, "gemini", e.tS)) }
+            _ui.update { it.copy(alert = UiAlert(lvl, v.message, "gemini", e.tS, kind)) }
         }
     }
 
@@ -233,6 +271,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() { alerts.close(); modelA?.close() }
 
     companion object {
+        private val DISTRACTION_EVENTS = setOf(EventType.GAZE_AWAY, EventType.PHONE_USE, EventType.DRINKING, EventType.SMOKING)
         private val ACTIVITY_EVENTS = setOf(EventType.PHONE_USE, EventType.DRINKING, EventType.SMOKING, EventType.FACE_TOUCH)
     }
 }

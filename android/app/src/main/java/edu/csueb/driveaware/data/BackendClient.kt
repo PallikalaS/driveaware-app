@@ -73,6 +73,33 @@ class BackendClient(private val baseUrl: String = BuildConfig.BACKEND_URL, priva
         return null
     }
 
+    data class TripNote(val text: String, val source: String)
+
+    /** End-of-trip note (Gemini-written on the backend, template if it can't reach Gemini). */
+    fun summary(tripId: String, durationS: Float, rows: List<EventLogger.Row>, peakFatigue: Float): TripNote? {
+        if (!configured) return null
+        // one entry per detection, with Gemini's verdict when there was one
+        val verdicts = rows.filter { it.source.startsWith("gemini") }.associateBy { it.tS to it.eventType }
+        val events = org.json.JSONArray()
+        rows.filter { it.source == "rules" || it.source == "model_a" }.forEach { r ->
+            val v = verdicts[r.tS to r.eventType]
+            events.put(JSONObject().put("t_s", r.tS.toDouble()).put("trigger", r.eventType).put("level", r.level)
+                .apply { v?.geminiEvent?.let { put("event", it) }; v?.severity?.let { put("severity", it) } })
+        }
+        val body = JSONObject().put("trip_id", tripId).put("duration_s", durationS.toDouble())
+            .put("events", events).put("peak_fatigue", peakFatigue.toDouble())
+        return try {
+            val c = (URL("$baseUrl/summary").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"; doOutput = true; connectTimeout = 10_000; readTimeout = 12_000
+                setRequestProperty("Content-Type", "application/json")
+            }
+            c.outputStream.use { it.write(body.toString().toByteArray()) }
+            if (c.responseCode != 200) return null
+            val j = JSONObject(c.inputStream.bufferedReader().readText())
+            TripNote(j.getString("summary").ifBlank { j.getString("advice") }, j.optString("summary_source", "template"))
+        } catch (_: Exception) { null }
+    }
+
     private fun jpegB64(b: Bitmap): String {
         val scaled = Bitmap.createScaledBitmap(b, 512, 512 * b.height / b.width, true)
         val out = ByteArrayOutputStream()
