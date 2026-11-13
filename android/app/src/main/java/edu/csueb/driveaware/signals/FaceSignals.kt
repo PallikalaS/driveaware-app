@@ -21,6 +21,7 @@ data class FrameSignals(
     val pose: HeadPose = HeadPose(0f, 0f, 0f),
     val eyeBrightness: Float = -1f, // eye-region mean gray (sunglasses check), -1 = not measured
     val eyeSharpness: Float = -1f,  // eye-region Laplacian variance
+    val cheekBrightness: Float = -1f, // skin below the eyes, for the eye/cheek ratio (Issue #60)
 )
 
 object FaceSignals {

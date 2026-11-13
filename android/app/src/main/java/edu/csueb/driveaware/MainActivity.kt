@@ -150,7 +150,8 @@ class MainActivity : ComponentActivity() {
                 appendLine("PERCLOS %.2f  blinks/10s %d".format(e.perclos, e.blinks))
                 appendLine("MAR %.2f  jaw %.2f  yawns5m %d".format(r?.mar ?: 0f, r?.jawOpen ?: 0f, e.yawns5min))
                 appendLine("yawΔ %.0f  pitchΔ %.0f  nods5m %d  gaze %.1fs".format(e.yawDelta, e.pitchDelta, e.nods5min, e.gazeAwayS))
-                appendLine("eyes b%.0f s%.0f  sunglasses %s  fatigue %.0f".format(r?.eyeBrightness ?: -1f, r?.eyeSharpness ?: -1f,
+                appendLine("eyes b%.0f s%.0f  eye/cheek %.2f  sunglasses %s  fatigue %.0f".format(r?.eyeBrightness ?: -1f, r?.eyeSharpness ?: -1f,
+                    if ((r?.cheekBrightness ?: -1f) > 10f) r!!.eyeBrightness / r.cheekBrightness else -1f,
                     if (ui.sunglasses) "YES" else "no", ui.fatigue))
                 appendLine("ModelA %s  [%s]".format(ui.modelA?.let { "%s %.2f".format(it.appClass, it.conf) }
                     ?: if (ui.mode == Mode.RULES_ONLY) "off (rules only)" else "none",

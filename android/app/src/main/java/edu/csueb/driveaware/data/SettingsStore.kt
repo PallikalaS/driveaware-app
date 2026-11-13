@@ -25,6 +25,7 @@ class SettingsStore(context: Context) {
             activityConf = p.getFloat("activityConf", d.activityConf),
             activityFrac = p.getFloat("activityFrac", d.activityFrac),
             sunglassesHoldS = p.getFloat("sunglassesHoldS", d.sunglassesHoldS),
+            sunglassesRatio = p.getFloat("sunglassesRatio", d.sunglassesRatio),
             sunglassesBrightness = p.getFloat("sunglassesBrightness", d.sunglassesBrightness),
             sunglassesLaplacian = p.getFloat("sunglassesLaplacian", d.sunglassesLaplacian),
         )
@@ -60,5 +61,6 @@ class SettingsStore(context: Context) {
         Triple("sunglassesBrightness", "Sunglasses: eye brightness", 10f to 120f),
         Triple("sunglassesLaplacian", "Sunglasses: eye sharpness", 5f to 100f),
         Triple("sunglassesHoldS", "Sunglasses: hold time (s)", 1f to 6f),
+        Triple("sunglassesRatio", "Sunglasses: eye/cheek brightness below", 0.3f to 0.9f),
     )
 }

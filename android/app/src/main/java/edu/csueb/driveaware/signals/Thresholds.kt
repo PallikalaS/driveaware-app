@@ -27,6 +27,9 @@ data class Thresholds(
     val sunglassesBrightness: Float = 45f, // eye-region mean gray
     val sunglassesLaplacian: Float = 25f,
     val sunglassesHoldS: Float = 3f,
+    // Issue #60: frames and reflections give sunglasses sharp edges, so dark+flat missed them on a
+    // real phone. Main test: eye area much darker than the cheeks (works in any light).
+    val sunglassesRatio: Float = 0.6f,     // eye-area brightness / cheek brightness below this = sunglasses
     val refractoryS: Float = 10f,          // same event can't re-fire within this
 ) {
     fun toCsvRows(): List<Pair<String, String>> =
