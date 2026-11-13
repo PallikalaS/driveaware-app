@@ -17,6 +17,8 @@ import edu.csueb.driveaware.signals.FatigueScore
 import edu.csueb.driveaware.signals.FrameSignals
 import edu.csueb.driveaware.signals.ModelAOutput
 import edu.csueb.driveaware.signals.SunglassesDetector
+import edu.csueb.driveaware.vision.ModelAClassifier
+import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import edu.csueb.driveaware.signals.TemporalEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +58,8 @@ data class UiState(
     val forcedModelA: String? = null,     // test switch: pretend Model A sees this class
     val modelA: ModelAOutput? = null,
     val tripDurationS: Float = 0f,
+    val modelALoaded: Boolean = false,
+    val modelAError: String? = null,
 )
 
 class MonitorViewModel(app: Application) : AndroidViewModel(app) {
@@ -76,6 +80,13 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _ui = MutableStateFlow(UiState(calibrated = settings.baseline() != null))
     val ui: StateFlow<UiState> = _ui
+    // Model A (#25), after _ui exists: loaded from assets/model_a_v1.tflite if it's there
+    private val modelA: ModelAClassifier?
+    init {
+        val (m, err) = ModelAClassifier.create(app)
+        modelA = m
+        _ui.update { it.copy(modelALoaded = m != null, modelAError = err) }
+    }
 
     fun go(s: Screen) = _ui.update { it.copy(screen = s) }
     fun setMode(m: Mode) = _ui.update { it.copy(mode = m) }
@@ -117,7 +128,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDelegate(name: String) = _ui.update { it.copy(delegate = name) }
 
-    fun onFrame(f: FrameSignals, frame: Bitmap) {
+    fun onFrame(f: FrameSignals, frame: Bitmap, landmarks: List<NormalizedLandmark> = emptyList()) {
         latestFrame = frame
         if (_ui.value.modelError != null) _ui.update { it.copy(modelError = null) }
         val dt = f.tMs - lastFrameMs
@@ -151,7 +162,9 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
                 frameCount++
                 val ui0 = _ui.value
                 if (ui0.mode != Mode.RULES_ONLY && frameCount % 3 == 0L) {
+                    // the test switch wins over the real model so testers can force a class
                     val out = ui0.forcedModelA?.let { ModelAOutput(rel.tMs, it, 0.95f) }
+                        ?: modelA?.let { m -> runCatching { m.classify(rel.tMs, frame, landmarks) }.getOrNull() }
                     out?.let { activity.process(it) }?.let(events::add)
                 }
 
@@ -217,7 +230,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
         EventType.SMOKING -> "Keep your hands and eyes on the road while you smoke."
     }
 
-    override fun onCleared() { alerts.close() }
+    override fun onCleared() { alerts.close(); modelA?.close() }
 
     companion object {
         private val ACTIVITY_EVENTS = setOf(EventType.PHONE_USE, EventType.DRINKING, EventType.SMOKING, EventType.FACE_TOUCH)
