@@ -18,7 +18,13 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -153,6 +159,11 @@ class MainActivity : ComponentActivity() {
         if (ui.screen != Screen.MONITORING) return   // don't leave the last trip's alert on other screens
         val a = ui.alert ?: return
         val bg = when (a.level) { 3 -> Color(0xEECC0000); 2 -> Color(0xEEE08000); else -> Color(0xCC1565C0) }
+        if (a.level >= 3) {   // #27: Level 3 also flashes a red frame around the whole camera view
+            val pulse by rememberInfiniteTransition(label = "l3").animateFloat(
+                0.15f, 1f, infiniteRepeatable(tween(400), RepeatMode.Reverse), label = "l3a")
+            Box(Modifier.matchParentSize().border(12.dp, Color.Red.copy(alpha = pulse)))
+        }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(bg).padding(16.dp)) {
             Text("Level ${a.level}: ${a.message}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
