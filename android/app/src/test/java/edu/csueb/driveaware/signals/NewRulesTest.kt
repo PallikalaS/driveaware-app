@@ -87,3 +87,35 @@ class FatigueScoreTest {
         assertEquals(100f * 25f / 60f, FatigueScore.compute(0f, 2, 0, 0, true), 0.01f)
     }
 }
+
+class Issue60And11Test {
+    @Test fun sunglassesByEyeCheekRatioEvenWithSharpFrames() {
+        val d = SunglassesDetector()
+        // sharp edges (frames, reflections) but the eye area is much darker than the cheeks
+        for (t in 0L..3000L step 100) d.update(t, 40f, 400f, cheek = 110f)
+        assertTrue(d.active)
+        val n = SunglassesDetector()   // normal eyes: a bit darker than cheeks, not much
+        for (t in 0L..5000L step 100) n.update(t, 85f, 380f, cheek = 110f)
+        assertFalse(n.active)
+    }
+
+    @Test fun yawnWithEyesClosedDoesNotFireClosureWhenItEnds() {
+        val e = TemporalEngine(base = Baseline(0.30f))
+        val ev = mutableListOf<DetectedEvent>()
+        // 2.5 s yawn with eyes squeezed shut, then eyes reopen 0.3 s after the mouth closes
+        for (t in 0L until 2500L step 33) ev += e.process(FrameSignals(t, true, ear = 0.10f, mar = 0.8f, jawOpen = 0.8f, eyeBlink = 0.9f))
+        for (t in 2500L until 2800L step 33) ev += e.process(FrameSignals(t, true, ear = 0.10f, eyeBlink = 0.9f))
+        for (t in 2800L until 4000L step 33) ev += e.process(FrameSignals(t, true, ear = 0.30f))
+        assertTrue(ev.any { it.type == EventType.YAWN })
+        assertTrue(ev.none { it.type == EventType.EYE_CLOSURE_LONG })
+    }
+
+    @Test fun eyesStayingClosedAfterAYawnStillAlert() {
+        val e = TemporalEngine(base = Baseline(0.30f))
+        val ev = mutableListOf<DetectedEvent>()
+        for (t in 0L until 2000L step 33) ev += e.process(FrameSignals(t, true, ear = 0.10f, mar = 0.8f, eyeBlink = 0.9f))
+        for (t in 2000L until 3500L step 33) ev += e.process(FrameSignals(t, true, ear = 0.10f, eyeBlink = 0.9f))
+        val c = ev.filter { it.type == EventType.EYE_CLOSURE_LONG }
+        assertTrue(c.isNotEmpty() && c.first().tS >= 2.9f)   // counted from when the mouth closed
+    }
+}

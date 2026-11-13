@@ -34,10 +34,18 @@ class SunglassesDetector(var th: Thresholds = Thresholds()) {
     var active = false; private set
     private var candidateSince: Long? = null
 
-    /** brightness/sharpness < 0 means "not measured this frame" (no face): state is kept. */
-    fun update(tMs: Long, brightness: Float, sharpness: Float): Boolean {
+    var lastRatio = -1f; private set
+
+    /**
+     * brightness/sharpness < 0 means "not measured this frame" (no face): state is kept.
+     * Sunglasses = eye area much darker than the cheeks (ratio), or dark and flat (old rule, kept
+     * for frameless dark lenses in dim light).
+     */
+    fun update(tMs: Long, brightness: Float, sharpness: Float, cheek: Float = -1f): Boolean {
         if (brightness < 0f || sharpness < 0f) { candidateSince = null; return active }
-        val looksDark = brightness < th.sunglassesBrightness && sharpness < th.sunglassesLaplacian
+        lastRatio = if (cheek > 10f) brightness / cheek else -1f
+        val byRatio = lastRatio in 0f..th.sunglassesRatio
+        val looksDark = byRatio || (brightness < th.sunglassesBrightness && sharpness < th.sunglassesLaplacian)
         if (looksDark != active) {
             val since = candidateSince ?: tMs.also { candidateSince = it }
             if (tMs - since >= (th.sunglassesHoldS * 1000).toLong()) { active = looksDark; candidateSince = null }

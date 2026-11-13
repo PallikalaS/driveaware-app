@@ -42,6 +42,7 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
 
     private var closeStart: Long? = null
     private var closureFired = false
+    private var lastMouthOpenMs = Long.MIN_VALUE   // eye-closure alert clock restarts after a yawn (Issue #11)
     private var longestClosureMs = 0L
     private var yawnStart: Long? = null
     private var yawnFired = false
@@ -78,6 +79,7 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
         // Mouth first: eyes squeeze shut during a real yawn, so no eye-closure alert while yawning
         // (Vanessa's Issue #4). The closure still counts for blinks / PERCLOS.
         val mouthOpen = f.mar >= th.yawnMar || f.jawOpen >= th.yawnJawOpen
+        if (mouthOpen) lastMouthOpenMs = t
 
         // ---------------- eyes: blink, long closure, PERCLOS
         // EAR alone misses quick blinks on real phones (Issue #5); the face model's eyeBlink
@@ -88,7 +90,10 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
                 closeStart = t; closureFired = false
                 lastLevel.remove(EventType.EYE_CLOSURE_LONG)
             }
-            val dur = (t - closeStart!!) / 1000f
+            // Alert clock: only the part of the closure after the mouth closed counts. Eyes squeeze
+            // shut during a yawn; when the yawn ends they reopen within a moment (Issue #11).
+            // PERCLOS / longest closure still use the full closure.
+            val dur = (t - maxOf(closeStart!!, lastMouthOpenMs)) / 1000f
             if (!closureFired && !mouthOpen && !sunglasses && dur >= th.longClosureS) {
                 closureFired = true
                 val lvl = if (dur >= th.severeClosureS) 3 else 2

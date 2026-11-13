@@ -110,12 +110,28 @@ class FaceLandmarkerHelper(
         val pose = result.facialTransformationMatrixes().orElse(null)?.firstOrNull()
             ?.let { FaceSignals.headPose(it) } ?: HeadPose(0f, 0f, 0f)
         val (bright, sharp) = eyeStats(bmp, lm)
+        val cheek = cheekBrightness(bmp, lm)
         onFrame(
             FrameSignals(t, true, FaceSignals.meanEar(lm, aspect), FaceSignals.mar(lm, aspect), jaw, blink, pose,
-                bright, sharp),
+                bright, sharp, cheek),
             result, bmp,
         )
     }
+
+    /** Mean brightness of the skin between the eyes and the nose tip (landmark 1), Issue #60. */
+    private fun cheekBrightness(bmp: Bitmap, lm: List<Pt>): Float = runCatching {
+        val idx = FaceSignals.LEFT_EYE + FaceSignals.RIGHT_EYE
+        val xs = idx.map { lm[it].x * bmp.width }; val ys = idx.map { lm[it].y * bmp.height }
+        val eyeH = ys.max() - ys.min() + 1f
+        val y0 = (ys.max() + eyeH * 1.2f).toInt().coerceIn(0, bmp.height - 2)
+        val y1 = (lm[1].y * bmp.height).toInt().coerceIn(y0 + 1, bmp.height)
+        val x0 = xs.min().toInt().coerceIn(0, bmp.width - 2)
+        val x1 = xs.max().toInt().coerceIn(x0 + 1, bmp.width)
+        val w = x1 - x0; val h = y1 - y0
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, x0, y0, w, h)
+        EyeRegion.stats(px, w, h).first
+    }.getOrDefault(-1f)
 
     /** Brightness + sharpness of a box around both eyes, for the sunglasses check (#18). */
     private fun eyeStats(bmp: Bitmap, lm: List<Pt>): Pair<Float, Float> = runCatching {

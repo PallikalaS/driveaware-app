@@ -184,7 +184,7 @@ class MonitorViewModel(app: Application) : AndroidViewModel(app) {
             Screen.MONITORING -> {
                 if (monitorStartMs == 0L) monitorStartMs = f.tMs
                 val rel = f.copy(tMs = f.tMs - monitorStartMs)
-                val sun = sunglassesDetector.update(rel.tMs, f.eyeBrightness, f.eyeSharpness)
+                val sun = sunglassesDetector.update(rel.tMs, f.eyeBrightness, f.eyeSharpness, f.cheekBrightness)
                 engine.sunglasses = sun
                 val events = engine.process(rel).toMutableList()
 
