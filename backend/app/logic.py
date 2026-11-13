@@ -152,3 +152,34 @@ class Cooldown:
             return False
         self._last[key] = now
         return True
+
+
+# ---------------------------------------------------------------- trip summary (/summary)
+SUMMARY_INSTRUCTION = (
+    "You write the end-of-trip note for DriveAware, an in-car drowsiness and distraction monitor. "
+    "You get the trip's numbers. Write 2 or 3 short, calm, plain-language sentences to the driver: "
+    "what happened, and one concrete suggestion. Do not invent events that are not in the numbers. "
+    "No markdown, no lists, no exclamation marks."
+)
+
+
+def rule_advice(by_event: dict, highest_severity: str | None, n_events: int) -> str:
+    """Fallback note when Gemini is unavailable (and the proposal's offline mode)."""
+    if highest_severity == "high":
+        return "Serious drowsiness was detected. Rest before your next drive."
+    if by_event.get("distracted_phone", 0) + by_event.get("phone_use", 0) >= 2:
+        return "Phone use came up more than once. Try Do Not Disturb while driving."
+    if n_events:
+        return "A few alerts this trip. Take regular breaks on longer drives."
+    return "Clean trip with no alerts. Nice driving."
+
+
+def summary_prompt(duration_min: float, by_event: dict, highest_severity: str | None,
+                   by_level: dict, peak_fatigue: float | None, dismissed: int) -> str:
+    """Only counts and levels go to Gemini for the summary: no images, no names."""
+    events = ", ".join(f"{k} x{v}" for k, v in sorted(by_event.items())) or "none"
+    levels = ", ".join(f"level {k}: {v}" for k, v in sorted(by_level.items())) or "none"
+    fat = "unknown" if peak_fatigue is None else f"{peak_fatigue:.0f}/100"
+    return (f"Trip length: {duration_min:.1f} min. Alerts by type: {events}. Alerts by level: {levels}. "
+            f"Highest severity: {highest_severity or 'none'}. Peak fatigue score: {fat}. "
+            f"Alerts Gemini dismissed as false alarms: {dismissed}.")

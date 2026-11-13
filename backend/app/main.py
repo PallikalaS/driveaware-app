@@ -16,7 +16,9 @@ Env:
                  projects/<p>/locations/us/endpoints/<id>
                  (gemini-2.5-flash was retired on Vertex AI on Oct 20, 2026)
                  (before tuning finishes: the base model id you confirmed)
-  GEMINI_TIMEOUT_S (default 4), COOLDOWN_S (default 30)
+  SUMMARY_MODEL  model for the end-of-trip note (default gemini-3.5-flash: always the base
+                 model, the tuned one only knows the verify JSON task)
+  GEMINI_TIMEOUT_S (default 4), SUMMARY_TIMEOUT_S (default 8), COOLDOWN_S (default 30)
   APP_TOKEN      optional shared token checked in X-App-Token header
 """
 from __future__ import annotations
@@ -30,7 +32,8 @@ from collections import Counter
 
 from fastapi import FastAPI, Header, HTTPException
 
-from .logic import SYSTEM_INSTRUCTION, Cooldown, apply_authority_rule, build_prompt, template_verdict
+from .logic import (SUMMARY_INSTRUCTION, SYSTEM_INSTRUCTION, Cooldown, apply_authority_rule, build_prompt,
+                    rule_advice, summary_prompt, template_verdict)
 from .schema import (GEMINI_RESPONSE_SCHEMA, GeminiVerdict, SummaryRequest, SummaryResponse,
                      VerifyRequest, VerifyResponse)
 
@@ -107,16 +110,30 @@ def verify(req: VerifyRequest, x_app_token: str | None = Header(default=None)):
 def summary(req: SummaryRequest, x_app_token: str | None = Header(default=None)):
     check_token(x_app_token)
     rank = {"low": 1, "medium": 2, "high": 3}
-    by_event = Counter(e.event or e.trigger for e in req.events)
+    by_event = Counter(e.event or e.trigger for e in req.events if e.event != "false_alarm")
+    by_level = Counter(e.level for e in req.events if e.event != "false_alarm")
+    dismissed = sum(e.event == "false_alarm" for e in req.events)
     sev = max((e.severity for e in req.events if e.severity), key=lambda s: rank[s], default=None)
     mins = req.duration_s / 60
-    if sev == "high":
-        advice = "Serious drowsiness was detected. Rest before your next drive."
-    elif by_event.get("distracted_phone", 0) >= 2:
-        advice = "Phone use came up more than once. Try Do Not Disturb while driving."
-    elif req.events:
-        advice = "A few alerts this trip. Take regular breaks on longer drives."
-    else:
-        advice = "Clean trip — no alerts. Nice driving."
-    return SummaryResponse(trip_id=req.trip_id, duration_min=round(mins, 1), alerts=len(req.events),
-                           by_event=dict(by_event), highest_severity=sev, advice=advice)
+    alerts = sum(by_level.values())
+    advice = rule_advice(dict(by_event), sev, alerts)
+    note, source = advice, "template"
+    try:
+        from google.genai import types
+        resp = gemini().models.generate_content(
+            model=os.getenv("SUMMARY_MODEL", "gemini-3.5-flash"),
+            contents=summary_prompt(mins, dict(by_event), sev, dict(by_level), req.peak_fatigue, dismissed),
+            config=types.GenerateContentConfig(
+                system_instruction=SUMMARY_INSTRUCTION,
+                thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
+                max_output_tokens=256,
+                http_options=types.HttpOptions(timeout=int(float(os.getenv("SUMMARY_TIMEOUT_S", "8")) * 1000)),
+            ),
+        )
+        if resp.text and resp.text.strip():
+            note, source = resp.text.strip(), "gemini"
+    except Exception as e:
+        log.warning("summary gemini failed: %s", e)
+    return SummaryResponse(trip_id=req.trip_id, duration_min=round(mins, 1), alerts=alerts,
+                           by_event=dict(by_event), highest_severity=sev, advice=advice,
+                           summary=note, summary_source=source)

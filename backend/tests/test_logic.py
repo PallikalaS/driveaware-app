@@ -63,3 +63,13 @@ def test_override_message_matches_corrected_severity():
     v, overridden = apply_authority_rule(req, g)
     assert overridden and v.severity == "high" and v.action == "pull_over_now"
     assert v.message == TEMPLATES[("drowsy", "high")][0]
+
+
+def test_summary_prompt_and_fallback_advice():
+    from app.logic import rule_advice, summary_prompt
+    p = summary_prompt(12.04, {"drowsy": 2, "yawn": 1}, "high", {3: 1, 1: 2}, 64.6, 1)
+    assert "Trip length: 12.0 min" in p and "drowsy x2" in p and "level 3: 1" in p
+    assert "Peak fatigue score: 65/100" in p and "dismissed as false alarms: 1" in p
+    assert rule_advice({}, "high", 3).startswith("Serious drowsiness")
+    assert rule_advice({"phone_use": 2}, "medium", 2).startswith("Phone use")
+    assert rule_advice({}, None, 0).startswith("Clean trip")

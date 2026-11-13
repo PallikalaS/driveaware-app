@@ -86,6 +86,7 @@ class SummaryRequest(BaseModel):
     trip_id: str
     duration_s: float
     events: list[TripEvent]
+    peak_fatigue: Optional[float] = None
 
 
 class SummaryResponse(BaseModel):
@@ -95,6 +96,8 @@ class SummaryResponse(BaseModel):
     by_event: dict[str, int]
     highest_severity: Optional[Severity]
     advice: str
+    summary: str = ""              # Gemini-written note (falls back to advice)
+    summary_source: str = "template"
 
 
 # JSON schema handed to Gemini as response_schema (OpenAPI subset).
