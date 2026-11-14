@@ -1,0 +1,8 @@
+session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,1,22,28,none,should_not_alert; three slow blinks
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,2,37,39,eye_closure_long,eyes closed 2 s
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,3,50,56,yawn,yawn about 6 s (planned 3 s)
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,4,67,70,nod,head nod
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,5,80,85,gaze_away,look out side window about 5 s (planned 3 s)
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,6,96,102,mirror_check,mirror check about 6 s
+V04,V04_bindu_day-none_t1.mp4,bindu,day-none,7,107,108,eye_closure_long,eyes closed about 1 s (planned 1.5 s)
