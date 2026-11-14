@@ -30,7 +30,7 @@ Front camera (CameraX 640×480, live) ──► Model C: MediaPipe Face Landmark
 
 | Model | What | Where | Customization | Output → next step |
 |---|---|---|---|---|
-| A | EfficientNet-Lite0 activity classifier | phone | fine-tuned (team + public data) | app class + conf → fusion |
+| A | EfficientNet-Lite0 activity classifier (MobileNetV3-Small fallback) | phone | fine-tuned (State Farm + team clips) | app class + conf → fusion |
 | B | Gemini 3.5 Flash (`gemini-3.5-flash`) | Vertex AI endpoint via Cloud Run | supervised fine-tuned (~250 examples) | event/confirmed/severity/message/action → alert |
 | C | MediaPipe Face Landmarker | phone | pretrained | landmarks/blendshapes/pose → rules |
 
@@ -38,41 +38,63 @@ Front camera (CameraX 640×480, live) ──► Model C: MediaPipe Face Landmark
 ```
 android/            Kotlin + Compose app (CameraX, MediaPipe Tasks)
   app/src/main/java/edu/csueb/driveaware/
-    signals/        FaceSignals (EAR/MAR/pose), TemporalEngine, Calibration, Thresholds   ← pure Kotlin, unit-tested
-    vision/         FaceLandmarkerHelper (Model C)
+    signals/        pure Kotlin, unit-tested: FaceSignals (EAR/MAR/pose), TemporalEngine (rules),
+                    Calibration, Thresholds, Sunglasses, ActivityRules (Model A rules), FatigueScore,
+                    CropGeometry (Model A crop, same as the Python crop)
+    vision/         FaceLandmarkerHelper (Model C), ModelAClassifier (Model A)
     data/           EventLogger (CSV for match_events.py), SettingsStore, AlertManager, BackendClient
-    ui/             MonitorViewModel (fusion, modes)
-    MainActivity.kt Home · Calibration · Monitoring · Settings · Trip Summary
-backend/            FastAPI for Cloud Run: /verify, /summary, /health
-tests/scripts/      Vanessa's scripted test-session CSVs (S01.csv … S08.csv)
+    ui/             MonitorViewModel (fusion, modes, alerts, trip summary)
+    MainActivity.kt Home · Calibration · Monitoring · Alert · Trip Summary · Settings · Test options
+backend/            FastAPI for Cloud Run: /verify (event check), /summary (trip note), /health
+tests/scripts/      Vanessa's system-test session scripts (S01.csv … S08.csv)
+tests/validation/   validation clip scripts (V01.csv … V03.csv) for threshold tuning
+docs/spec_notes.md  specs for the report: models, rules, screens, backend, measured numbers
 reports/            weekly progress reports
-docs/               architecture diagram, screenshots for the report
 ```
 
 ## Build the app
-1. Android Studio (Koala or newer) → *Open* `android/`.
-2. `bash android/download_assets.sh` (fetches `face_landmarker.task`). Copy `model_a_v1.tflite`
-   from Drive → `Models/` into `android/app/src/main/assets/` when it exists.
-3. Put the backend URL in `android/local.properties`… or `~/.gradle/gradle.properties`:
-   `backendUrl=https://driveaware-backend-xxxx.run.app` (empty = offline/local alerts only).
-4. Run on the Pixel 6 (USB debugging on). Unit tests: `./gradlew test`.
+1. Android Studio → *Open* `android/`. Settings → Build Tools → Gradle → **Gradle JDK = 21**
+   (Gradle 8.9 does not run on the bundled JDK 25).
+2. `bash android/download_assets.sh` (fetches `face_landmarker.task` into `app/src/main/assets/`).
+   Copy `model_a_v1.tflite` from Drive → `Models/` into the same folder when it exists; without it
+   the app runs with Model A off (Home shows ✗ Model A).
+3. Backend URL in `android/local.properties` (not committed):
+   `backendUrl=<Cloud Run URL>` (ask Swathi; kept out of this public repo because the endpoint calls a paid API). Empty = offline, local alerts only.
+4. Run on the emulator (Pixel 6 API 34, front camera = Webcam0) or a phone. Command-line APK:
+   `cd android && JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew clean assembleDebug`
+   → `app/build/outputs/apk/debug/app-debug.apk`. Released APKs: Drive → `Models/driveaware-vX.Y.apk`.
+5. Unit tests: `./gradlew test` (rules, sunglasses, activity rules, fatigue score, crop geometry).
 
 ## Backend
 ```bash
 cd backend && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt && pytest -q
-GCP_PROJECT=driveaware-cs663-swathi GEMINI_MODEL=<tuned-endpoint> bash deploy.sh   # default: gemini-3.5-flash, Vertex location "us"
+export CLOUDSDK_ACTIVE_CONFIG_NAME=driveaware   # gcloud config for this project
+GCP_PROJECT=driveaware-cs663-swathi bash deploy.sh                       # base gemini-3.5-flash, Vertex "us"
+GCP_PROJECT=driveaware-cs663-swathi GEMINI_MODEL=<tuned endpoint> bash deploy.sh   # after tuning
+curl -s "$(gcloud run services describe driveaware-backend --region us-central1 --format='value(status.url)')/health"
 ```
+Cloud Run (us-central1, 0–3 instances, 512 MiB) runs as a service account with only Vertex AI User;
+no keys on the phone. `/verify` applies the authority rule (measured closures / PERCLOS / nods are never
+dismissed), a 30 s cooldown per event type and a template fallback; `/summary` asks the base model for a
+2–3 sentence trip note from counts only. Undeploy after grading: `gcloud run services delete driveaware-backend --region us-central1`.
 
-## Status (what this first build includes)
-- ✅ Face Landmarker live stream, EAR/MAR/jawOpen/head pose, blink + long closure (L2→L3 escalation),
-  rolling 60 s PERCLOS, yawn counter, nod, gaze-away timer (mirror checks < 2 s don't alert)
-- ✅ 10 s calibration (median baseline, "face not found" recovery), debug overlay, settings sliders,
-  ablation mode switch, event-log CSV export, tiered alerts, offline template messages
-- ✅ Backend: schema, authority rule, cooldown, template fallback (tests pass); Cloud Run Dockerfile + deploy
-- ⏳ Model A integration (MediaPipe Image Classifier every 3rd frame on the dynamic crop, 70 %/2 s rule,
-  "hand occupied"), sunglasses check + degraded mode, fatigue score, "force Model A output" switch,
-  Alert screen polish, trip summary via `/summary`
+## How to use the app
+1. **Calibrate** (10 s looking at the road), then **Start trip** (optional session ID S01… for test runs).
+2. Alerts: Level 1 beep · Level 2 beep + vibration + voice · Level 3 alarm + strong vibration +
+   full-screen red flash. Tap **I'M OK** to silence and clear an alert.
+3. **End trip** → summary: fatigue chart, alerts by level, Gemini-written note, **Export event log** (CSV).
+4. **Test options**: ablation mode (rules / rules + Model A / full), debug overlay, force Model A output.
+5. **Settings**: every threshold as a slider (saved on the phone).
+
+## Status (v0.8, Nov 13)
+- ✅ Model C + rules: blink, long closure (no alert from a yawn), PERCLOS, yawn, nod, gaze-away
+  (mirror checks < 2 s don't alert), calibration, sunglasses degraded mode (eye/cheek brightness), fatigue score
+- ✅ Model A path: classifier wrapper on the upper-body crop every 3rd frame, 70 % / 2 s rule, hand-occupied,
+  face-touch counter, force-output test switch (waiting for `model_a_v1.tflite`)
+- ✅ All 5 proposal screens, recovery states (face not found after 3 s, sunglasses, offline), event-log CSV
+- ✅ Backend live on Cloud Run with base Gemini 3.5 Flash: /verify, /summary (Gemini trip note), /health
+- ⏳ Tuned Gemini endpoint, final thresholds from V01–V03, Model A v1, system-test results
 
 ## Project 2 guidelines checklist
 
