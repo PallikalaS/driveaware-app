@@ -13,8 +13,8 @@ android {
         applicationId = "edu.csueb.driveaware"
         minSdk = 26            // Pixel 6 / Android 12 test phone is API 31
         targetSdk = 34
-        versionCode = 9
-        versionName = "0.9.0"
+        versionCode = 10
+        versionName = "0.10.0"
         // Cloud Run URL: put  backendUrl=https://...run.app  in android/local.properties
         // (not committed). findProperty() alone does not read local.properties.
         val localProps = Properties().apply {
@@ -41,6 +41,8 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax")
 
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    // Model A exported without TFLite metadata (Colab Python 3.13): run it with the plain interpreter
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.ui:ui")

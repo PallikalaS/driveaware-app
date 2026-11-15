@@ -56,7 +56,8 @@ reports/            weekly progress reports
 1. Android Studio → *Open* `android/`. Settings → Build Tools → Gradle → **Gradle JDK = 21**
    (Gradle 8.9 does not run on the bundled JDK 25).
 2. `bash android/download_assets.sh` (fetches `face_landmarker.task` into `app/src/main/assets/`).
-   Copy `model_a_v1.tflite` from Drive → `Models/` into the same folder when it exists; without it
+   Copy `model_a_v1.tflite` and `model_a_labels.txt` from Drive → `Models/` into the same folder
+   (the labels file is needed when the model has no TFLite metadata, as with run02); without them
    the app runs with Model A off (Home shows ✗ Model A).
 3. Backend URL in `android/local.properties` (not committed):
    `backendUrl=<Cloud Run URL>` (ask Swathi; kept out of this public repo because the endpoint calls a paid API). Empty = offline, local alerts only.
