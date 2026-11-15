@@ -29,7 +29,7 @@ TRIGGER_TO_EVENT = {
     "face_touch": "early_fatigue",
 }
 
-PERCLOS_HIGH = 0.15          # labeling_guide.md section 2
+PERCLOS_HIGH = 0.20          # labeling_guide.md section 2; tuned on V01-V04 (was 0.15), = Thresholds.kt perclosHigh
 GAZE_MEDIUM_S = 4.0          # gaze off road > 4 s -> medium
 
 # Offline / fallback messages. Wording follows labeling_guide.md section 5:
@@ -72,7 +72,7 @@ def build_prompt(trigger: str, level: int, s: SignalSummary) -> str:
 
 def fallback_event(trigger: str, s: SignalSummary) -> str:
     """Event for the template fallback (labeling_guide.md section 3)."""
-    if trigger in ("yawn", "face_touch") and s.perclos > PERCLOS_HIGH and not s.sunglasses:
+    if trigger in ("yawn", "face_touch") and s.perclos >= PERCLOS_HIGH and not s.sunglasses:
         return "drowsy"
     return TRIGGER_TO_EVENT[trigger]
 
@@ -83,7 +83,7 @@ def default_severity(trigger: str, s: SignalSummary) -> str:
     Model A reports only phone_use (it can't tell texting from a call), so the
     offline fallback uses medium; tuned Gemini sets high when the keyframe shows texting.
     """
-    perclos_high = s.perclos > PERCLOS_HIGH and not s.sunglasses
+    perclos_high = s.perclos >= PERCLOS_HIGH and not s.sunglasses
     if trigger == "eye_closure_long":
         sev = "high"                                   # any closure >= 1.0 s
     elif trigger == "nod":
