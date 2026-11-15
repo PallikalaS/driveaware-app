@@ -43,6 +43,7 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
     private var closeStart: Long? = null
     private var closureFired = false
     private var lastMouthOpenMs = Long.MIN_VALUE   // eye-closure alert clock restarts after a yawn (Issue #11)
+    private var lastHeadAwayMs = Long.MIN_VALUE    // … and after the head was turned far away (Vanessa, Nov 14)
     private var longestClosureMs = 0L
     private var yawnStart: Long? = null
     private var yawnFired = false
@@ -80,6 +81,11 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
         // (Vanessa's Issue #4). The closure still counts for blinks / PERCLOS.
         val mouthOpen = f.mar >= th.yawnMar || f.jawOpen >= th.yawnJawOpen
         if (mouthOpen) lastMouthOpenMs = t
+        // Head turned far up / down / sideways: the eyes look narrow to the camera even when open
+        // (looking up gave a false Level 3). Gaze-away and nod rules cover these poses instead.
+        val pd = f.pose.pitchDeg - base.pitchDeg
+        val headAway = abs(f.pose.yawDeg - base.yawDeg) >= th.gazeYawDeg || pd >= th.gazePitchDeg || pd <= -th.nodPitchDeg
+        if (headAway) lastHeadAwayMs = t
 
         // ---------------- eyes: blink, long closure, PERCLOS
         // EAR alone misses quick blinks on real phones (Issue #5); the face model's eyeBlink
@@ -93,14 +99,14 @@ class TemporalEngine(var th: Thresholds = Thresholds(), var base: Baseline = Bas
             // Alert clock: only the part of the closure after the mouth closed counts. Eyes squeeze
             // shut during a yawn; when the yawn ends they reopen within a moment (Issue #11).
             // PERCLOS / longest closure still use the full closure.
-            val dur = (t - maxOf(closeStart!!, lastMouthOpenMs)) / 1000f
-            if (!closureFired && !mouthOpen && !sunglasses && dur >= th.longClosureS) {
+            val dur = (t - maxOf(closeStart!!, lastMouthOpenMs, lastHeadAwayMs)) / 1000f
+            if (!closureFired && !mouthOpen && !headAway && !sunglasses && dur >= th.longClosureS) {
                 closureFired = true
                 val lvl = if (dur >= th.severeClosureS) 3 else 2
                 fire(EventType.EYE_CLOSURE_LONG, t, lvl, "closed %.1fs".format(dur))?.let(out::add)
             }
             // escalate to level 3 while still closed
-            if (closureFired && !mouthOpen && !sunglasses && dur >= th.severeClosureS && (lastLevel[EventType.EYE_CLOSURE_LONG] ?: 0) < 3) {
+            if (closureFired && !mouthOpen && !headAway && !sunglasses && dur >= th.severeClosureS && (lastLevel[EventType.EYE_CLOSURE_LONG] ?: 0) < 3) {
                 lastLevel[EventType.EYE_CLOSURE_LONG] = 3
                 out += DetectedEvent(EventType.EYE_CLOSURE_LONG, tS, 3, "closed %.1fs".format(dur))
             }

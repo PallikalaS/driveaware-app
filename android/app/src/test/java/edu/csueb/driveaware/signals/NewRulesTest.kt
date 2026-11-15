@@ -7,21 +7,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SunglassesTest {
-    @Test fun darkFlatEyesTurnOnAfterHoldAndOffAfterHold() {
+    @Test fun darkEyesVsCheeksTurnOnAfterHoldAndOffAfterHold() {
         val d = SunglassesDetector()
-        assertFalse(d.update(0, 20f, 10f))
-        assertFalse(d.update(2900, 20f, 10f))        // not yet 3 s
-        assertTrue(d.update(3000, 20f, 10f))
-        assertTrue(d.update(4000, 90f, 60f))         // glasses off, hold again
-        assertFalse(d.update(7000, 90f, 60f))
+        assertFalse(d.update(0, 30f, 10f, cheek = 100f))
+        assertFalse(d.update(2900, 30f, 10f, cheek = 100f))   // not yet 3 s
+        assertTrue(d.update(3000, 30f, 10f, cheek = 100f))
+        assertTrue(d.update(4000, 90f, 60f, cheek = 110f))    // glasses off, hold again
+        assertFalse(d.update(7000, 90f, 60f, cheek = 110f))
+    }
+
+    @Test fun darkRoomWithoutSunglassesStaysOff() {
+        // Vanessa, Nov 14: whole face dark (eyes 20, cheeks 25) used to read as sunglasses
+        val d = SunglassesDetector()
+        for (t in 0L..6000L step 100) d.update(t, 20f, 10f, cheek = 25f)
+        assertFalse(d.active)
     }
 
     @Test fun aBlinkOrShadowDoesNotFlip() {
         val d = SunglassesDetector()
-        for (t in 0L..2000L step 100) d.update(t, 20f, 10f)
-        d.update(2100, 90f, 60f)                     // one bright frame resets the hold
-        assertFalse(d.update(3500, 20f, 10f))
-        assertFalse(d.update(6000, 30f, 50f))        // dark but sharp: real eyes in low light
+        for (t in 0L..2000L step 100) d.update(t, 30f, 10f, cheek = 100f)
+        d.update(2100, 90f, 60f, cheek = 100f)                // one normal frame resets the hold
+        assertFalse(d.update(3500, 30f, 10f, cheek = 100f))
     }
 
     @Test fun eyeRegionStatsSeparateFlatFromTextured() {
@@ -76,8 +82,8 @@ class ActivityRulesTest {
 class FatigueScoreTest {
     @Test fun scoreAndBands() {
         assertEquals(0f, FatigueScore.compute(0f, 0, 0, 0, false), 0.01f)
-        assertEquals(100f, FatigueScore.compute(0.30f, 2, 3, 3, false), 0.01f)
-        assertEquals(40f, FatigueScore.compute(0.15f, 0, 0, 0, false), 0.01f)
+        assertEquals(100f, FatigueScore.compute(0.40f, 2, 3, 3, false), 0.01f)
+        assertEquals(40f, FatigueScore.compute(0.20f, 0, 0, 0, false), 0.01f)
         assertEquals("alert", FatigueScore.band(10f)); assertEquals("tiring", FatigueScore.band(40f))
         assertEquals("drowsy", FatigueScore.band(70f))
     }
@@ -117,5 +123,23 @@ class Issue60And11Test {
         for (t in 2000L until 3500L step 33) ev += e.process(FrameSignals(t, true, ear = 0.10f, eyeBlink = 0.9f))
         val c = ev.filter { it.type == EventType.EYE_CLOSURE_LONG }
         assertTrue(c.isNotEmpty() && c.first().tS >= 2.9f)   // counted from when the mouth closed
+    }
+}
+
+class HeadAwayClosureTest {
+    @Test fun lookingUpWithNarrowEyesIsNotAnEyeClosure() {
+        val e = TemporalEngine(base = Baseline(0.30f))
+        val ev = (0L until 4000L step 33).flatMap {
+            // head tilted back 30 degrees: eyes look narrow to the camera
+            e.process(FrameSignals(it, true, ear = 0.12f, eyeBlink = 0.2f, pose = HeadPose(0f, 30f, 0f)))
+        }
+        assertTrue(ev.none { it.type == EventType.EYE_CLOSURE_LONG })
+        assertTrue(ev.any { it.type == EventType.GAZE_AWAY })
+    }
+
+    @Test fun eyesClosedFacingForwardStillAlertsLevel3() {
+        val e = TemporalEngine(base = Baseline(0.30f))
+        val ev = (0L until 2000L step 33).flatMap { e.process(FrameSignals(it, true, ear = 0.08f, eyeBlink = 0.9f)) }
+        assertEquals(3, ev.first { it.type == EventType.EYE_CLOSURE_LONG }.level)
     }
 }
