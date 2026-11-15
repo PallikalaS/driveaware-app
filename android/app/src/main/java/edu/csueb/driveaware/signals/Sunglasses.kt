@@ -37,15 +37,19 @@ class SunglassesDetector(var th: Thresholds = Thresholds()) {
     var lastRatio = -1f; private set
 
     /**
-     * brightness/sharpness < 0 means "not measured this frame" (no face): state is kept.
-     * Sunglasses = eye area much darker than the cheeks (ratio), or dark and flat (old rule, kept
-     * for frameless dark lenses in dim light).
+     * Sunglasses = eye area much darker than the cheeks (eye/cheek < sunglassesRatio for
+     * sunglassesHoldS). Comparing with the cheeks makes it work in any light; when the cheeks
+     * themselves are too dark to read (dark room) or nothing was measured (no face), the state is
+     * kept instead of guessing. The old "dark and flat" rule was removed: in a dark room every
+     * face is dark and flat, so it said YES without sunglasses.
      */
     fun update(tMs: Long, brightness: Float, sharpness: Float, cheek: Float = -1f): Boolean {
-        if (brightness < 0f || sharpness < 0f) { candidateSince = null; return active }
-        lastRatio = if (cheek > 10f) brightness / cheek else -1f
-        val byRatio = lastRatio in 0f..th.sunglassesRatio
-        val looksDark = byRatio || (brightness < th.sunglassesBrightness && sharpness < th.sunglassesLaplacian)
+        if (brightness < 0f || cheek < th.sunglassesMinCheek) {
+            lastRatio = if (cheek > 0f && brightness >= 0f) brightness / cheek else -1f
+            candidateSince = null; return active
+        }
+        lastRatio = brightness / cheek
+        val looksDark = lastRatio <= th.sunglassesRatio
         if (looksDark != active) {
             val since = candidateSince ?: tMs.also { candidateSince = it }
             if (tMs - since >= (th.sunglassesHoldS * 1000).toLong()) { active = looksDark; candidateSince = null }

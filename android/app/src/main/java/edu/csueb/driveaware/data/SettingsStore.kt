@@ -26,8 +26,7 @@ class SettingsStore(context: Context) {
             activityFrac = p.getFloat("activityFrac", d.activityFrac),
             sunglassesHoldS = p.getFloat("sunglassesHoldS", d.sunglassesHoldS),
             sunglassesRatio = p.getFloat("sunglassesRatio", d.sunglassesRatio),
-            sunglassesBrightness = p.getFloat("sunglassesBrightness", d.sunglassesBrightness),
-            sunglassesLaplacian = p.getFloat("sunglassesLaplacian", d.sunglassesLaplacian),
+            sunglassesMinCheek = p.getFloat("sunglassesMinCheek", d.sunglassesMinCheek),
         )
     }
 
@@ -58,8 +57,7 @@ class SettingsStore(context: Context) {
         Triple("gazeMaxS", "Gaze away time (s)", 1f to 5f),
         Triple("activityConf", "Model A confidence", 0.3f to 0.95f),
         Triple("activityFrac", "Model A: share of frames over 2 s", 0.4f to 1.0f),
-        Triple("sunglassesBrightness", "Sunglasses: eye brightness", 10f to 120f),
-        Triple("sunglassesLaplacian", "Sunglasses: eye sharpness", 5f to 100f),
+        Triple("sunglassesMinCheek", "Sunglasses: too dark to judge below cheek", 10f to 80f),
         Triple("sunglassesHoldS", "Sunglasses: hold time (s)", 1f to 6f),
         Triple("sunglassesRatio", "Sunglasses: eye/cheek brightness below", 0.3f to 0.9f),
     )
