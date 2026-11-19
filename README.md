@@ -2,7 +2,7 @@
 
 Android app that watches the driver through the front camera and warns about drowsiness and
 distraction. CS663 Computer Vision, Project 2 (group: Swathi, Mahitha, Bindu, Vanessa).
-Model development code: [`driveaware-models`](../driveaware-models).
+Model development code: [`driveaware-models`](https://github.com/PallikalaS/driveaware-models).
 
 📄 Documentation Report PDF: _link after Canvas upload_ · 🎬 Demo video: _YouTube link_
 
