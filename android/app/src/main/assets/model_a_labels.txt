@@ -1,0 +1,5 @@
+drinking
+face_touch
+phone_use
+safe_driving
+smoking

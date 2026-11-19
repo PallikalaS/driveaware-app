@@ -16,6 +16,7 @@ captures/
 *.jpeg
 *.png
 !docs/**/*.png
+!docs/**/*.jpg
 # Python backend
 .venv/
 __pycache__/
@@ -27,3 +28,6 @@ service-account*.json
 
 # macOS
 .DS_Store
+
+# Model A (run02) ships with the repo so source builds include it (1.9 MB)
+!android/app/src/main/assets/model_a_v1.tflite
