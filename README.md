@@ -6,6 +6,10 @@ Model development code: [`driveaware-models`](../driveaware-models).
 
 📄 Documentation Report PDF: _link after Canvas upload_ · 🎬 Demo video: _YouTube link_
 
+> **Note on screenshots:** the camera view in every screenshot in this README is **blurred on purpose** to protect
+> the privacy of the team member being tested. The app itself shows the camera view unblurred; the UI, alerts and
+> debug read-outs in the screenshots are unchanged.
+
 ## Architecture 
 
 ```
