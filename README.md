@@ -59,8 +59,9 @@ reports/            weekly progress reports
 ## 1. App execution instructions
 
 ### 1.1 Install the APK (fastest)
-1. On an Android phone (Android 8.0+, front camera), download **`driveaware-v0.10.apk`** from this repo's
-   **[Releases](../../releases)** page.
+1. On an Android phone (Android 8.0+, front camera), download
+   **[`driveaware-v0.10.apk`](https://github.com/PallikalaS/driveaware-app/releases/download/v0.10.0/driveaware-v0.10.apk)**
+   (74 MB, from the [v0.10.0 release](https://github.com/PallikalaS/driveaware-app/releases/tag/v0.10.0)).
 2. Open the file and tap **Install** (allow "Install unknown apps" for your browser or Files app if asked).
 3. Open **DriveAware** and allow camera access.
 4. Check the chips on Home: **✓ Camera ✓ Calibrated ✓ Cloud ✓ Model A**. ✗ Cloud only means offline:
