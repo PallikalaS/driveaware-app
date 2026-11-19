@@ -16,6 +16,7 @@ captures/
 *.jpeg
 *.png
 !docs/**/*.png
+!docs/**/*.jpg
 # Python backend
 .venv/
 __pycache__/
