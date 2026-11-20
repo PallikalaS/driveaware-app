@@ -165,11 +165,67 @@ All app code is Kotlin (Jetpack Compose UI, CameraX, MediaPipe Tasks, TensorFlow
 | `reports/weekly-progress-report.md` | Weekly progress reports. |
 | `.github/ISSUE_TEMPLATE/` | Bug-report and task templates for GitHub Issues. |
 
-## Status (v0.8, Nov 13)
-- ✅ Model C + rules: blink, long closure (no alert from a yawn), PERCLOS, yawn, nod, gaze-away
-  (mirror checks < 2 s don't alert), calibration, sunglasses degraded mode (eye/cheek brightness), fatigue score
-- ✅ Model A path: classifier wrapper on the upper-body crop every 3rd frame, 70 % / 2 s rule, hand-occupied,
-  face-touch counter, force-output test switch (waiting for `model_a_v1.tflite`)
-- ✅ All 5 proposal screens, recovery states (face not found after 3 s, sunglasses, offline), event-log CSV
-- ✅ Backend live on Cloud Run with base Gemini 3.5 Flash: /verify, /summary (Gemini trip note), /health
-- ⏳ Tuned Gemini endpoint, final thresholds from V01–V03, Model A v1, system-test results
+## 3. Testing
+_Full-system test results (3.1 starting the app, 3.2 app results) are added after the final test sessions._
+Model results (Model A curves and confusion matrices, Gemini base vs. tuned) are in the
+[models repo](https://github.com/PallikalaS/driveaware-models).
+
+## 4. What we built, and known limitations
+
+### 4.1 What works: every part of the proposal runs, end to end
+DriveAware delivers the full system from the proposal: a phone on the dashboard that watches the driver live,
+three AI models working together, and alerts that reach the driver in time even with no network.
+
+- **Three models, one live pipeline.** MediaPipe Face Landmarker (Model C) runs on every camera frame, our
+  fine-tuned activity classifier (Model A) runs on the phone every 3rd frame, and our fine-tuned Gemini (Model B)
+  verifies events in the cloud. The phone keeps a smooth live view (25–37 FPS on the test phone, from the debug overlay).
+- **Drowsiness detection:** long eye closures, PERCLOS over 60 s, yawns, head nods and gaze-away, each personalised
+  by a 10-second calibration for every driver.
+- **Distraction detection on the phone:** phone use, drinking, smoking and face touching, with a 2-second
+  confirmation rule (≥ 70 % of frames) so a single wrong frame never triggers an alert.
+- **Safety-first alert design.** Three escalating levels (chime → voice + vibration → alarm + red flash). Level 3
+  fires on the phone immediately; the cloud never delays a critical alert. An **authority rule** guarantees Gemini can
+  never dismiss a measured drowsiness signal (0 violations in testing).
+- **A fine-tuned Gemini that clearly beats the base model** on our held-out test set (51 events):
+
+  | Metric | Base Gemini 3.5 Flash | **Fine-tuned (deployed)** |
+  |---|---|---|
+  | Event accuracy | 0.765 | **0.843** |
+  | Severity accuracy | 0.745 | **0.922** |
+  | Follows our labeling guide | 0.686 | **0.882** |
+  | Valid JSON | 1.000 | **1.000** |
+  | Dismissed a measured drowsiness signal | 0 | **0** |
+
+  Our first tuned model reached 0.902 event accuracy and 0.961 severity accuracy.
+- **Detection tuned on real data.** Tuning the thresholds on our own validation clips raised yawn recall from 20 % to
+  80 %, macro-F1 from 0.49 to 0.69 and cut false alarms from 11 to 7.
+- **Model A learns from our data.** Adding our own recordings raised the fine-tuned model's accuracy on drivers it has
+  never seen from 0.26 to 0.40, in a model small enough (1.9 MB) to run live on a phone.
+- **Works in real conditions:** day and night, clear glasses and sunglasses (a dedicated sunglasses mode),
+  "face not found" guidance, and a full **offline mode** where every alert still works.
+- **Complete app experience:** calibration, live status tiles, fatigue score, a trip summary with a fatigue chart
+  and a Gemini-written note, event-log export, and every threshold adjustable in Settings.
+- **Private by design:** no video leaves the phone, only one 512 px keyframe and a few numbers per event.
+- **Our own dataset:** all four of us recorded scripted driving clips in four lighting/eyewear conditions,
+  398 events hand-labeled for Gemini with a second-person quality check, and two team members held out
+  entirely for testing.
+- **Built with testing at its core:** 25 app unit tests, backend tests and 42 tests in the models repo; bugs found
+  by our tester were fixed and re-released within a day (v0.9).
+
+### 4.2 Known limitations, what causes them, and how we handle them
+| Area | What we see | Likely cause | How the system handles it / next step |
+|---|---|---|---|
+| Model A on new drivers | 0.40 accuracy on unseen drivers (CLIP zero-shot: 0.55); smoking and safe driving are the hardest classes | Only two team members could be used for training (two are held out), and the public State Farm images use a different camera angle than a dashboard phone | The 2-second confirmation rule filters single-frame mistakes, and Gemini re-checks every activity event on the keyframe. CLIP itself is too large to run live on a phone. Next: more drivers and distilling CLIP into the small model |
+| Gemini response time | Median 2.9 s; slowest calls up to ~7 s (95th percentile), above the phone's 4 s limit | Latency of the tuned model endpoint on Vertex AI | The alert itself always fires instantly on the phone; for slow calls the app shows its own clear message instead of Gemini's. Next: a longer timeout or a smaller model |
+| Sunglasses | Eye-closure and PERCLOS alerts pause while dark sunglasses are detected | The eyes can't be seen reliably through dark lenses | By design: the app tells the driver ("Eye tracking limited: sunglasses") and keeps yawn, nod, gaze and activity detection running. Next: an infrared camera |
+| Rare events | Fewer gaze-away (8) and smoking (6) tuning examples than our target of 15 | Natural imbalance in recorded clips | Gemini still improved on these types; more recordings would close the gap |
+| Cloud | Our course cloud credit ran out on Nov 18 and the first tuned model was deleted | Credit limit of the education account | We restored the service within a day and re-tuned on the same data (results above). The app's offline mode kept every alert working in the meantime |
+
+### 4.3 Changes from the proposal
+- **Model A architecture:** EfficientNet-Lite0 (MediaPipe Model Maker) → **MobileNetV3-Small** in Keras, because Model
+  Maker no longer installs on Colab's Python 3.13. Same role, same input, also small enough for the phone.
+- **Gemini version:** gemini-2.5-flash was retired on Vertex AI in October 2026, so we fine-tuned **Gemini 3.5 Flash**
+  (tuned and served in the `us` multi-region, where 3.5 Flash tuning is available).
+
+## 5. Demo video
+_YouTube link (narrated live demo with accuracy discussion) is added here once uploaded._
