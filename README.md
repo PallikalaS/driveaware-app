@@ -166,9 +166,28 @@ All app code is Kotlin (Jetpack Compose UI, CameraX, MediaPipe Tasks, TensorFlow
 | `.github/ISSUE_TEMPLATE/` | Bug-report and task templates for GitHub Issues. |
 
 ## 3. Testing
-_Full-system test results (3.1 starting the app, 3.2 app results) are added after the final test sessions._
-Model results (Model A curves and confusion matrices, Gemini base vs. tuned) are in the
-[models repo](https://github.com/PallikalaS/driveaware-models).
+Model results (Model A curves and confusion matrices, Gemini base vs. tuned, 15 Gemini test cases) are in the
+[models repo](https://github.com/PallikalaS/driveaware-models#results-and-testing). Full-system results from the
+scripted sessions with the held-out drivers are added in the models repo under `results/system/`.
+Screenshots are from a real phone; the camera view is blurred for privacy.
+
+### 3.1 Starting the app
+| 1. Home: status chips, session ID, start trip | 2. Calibration: 10 s looking at the road | 3. Monitoring starts |
+|---|---|---|
+| ![Home](docs/screenshots/home.jpg) | ![Calibration](docs/screenshots/calibration.jpg) | ![Monitoring](docs/screenshots/monitoring.jpg) |
+| **Settings:** every threshold as a slider | **Test options:** ablation mode, debug overlay, force Model A | **v0.10 Home with ✓ Model A** |
+| ![Settings](docs/screenshots/settings.jpg) | ![Test options](docs/screenshots/test_options.jpg) | _screenshot from the v0.10 test runs_ |
+
+### 3.2 App results
+| Level 1: gaze away | Level 1: yawn | Level 2: voice + vibration |
+|---|---|---|
+| ![Level 1 gaze](docs/screenshots/alert_l1_gaze.jpg) | ![Level 1 yawn](docs/screenshots/alert_l1_yawn.jpg) | ![Level 2](docs/screenshots/alert_l2.jpg) |
+| **Level 3: eyes closed > 1 s** | **Model A activity alert (phone / drinking)** | **Face not found** |
+| ![Level 3](docs/screenshots/alert_l3.jpg) | _screenshot from the v0.10 test runs_ | ![Face not found](docs/screenshots/face_not_found.jpg) |
+| **Sunglasses: eye tracking limited** | **Offline: local alerts only** | **Trip summary** |
+| ![Sunglasses](docs/screenshots/sunglasses.jpg) | ![Offline](docs/screenshots/offline.jpg) | ![Trip summary](docs/screenshots/summary.jpg) |
+| **Gemini trip note** | **Exported event log (CSV)** | |
+| ![Gemini trip note](docs/screenshots/summary_gemini_note.jpg) | ![Event log](docs/screenshots/event_log_export.jpg) | |
 
 ## 4. What we built, and known limitations
 
