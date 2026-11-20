@@ -38,24 +38,6 @@ Front camera (CameraX 640×480, live) ──► Model C: MediaPipe Face Landmark
 | B | Gemini 3.5 Flash (`gemini-3.5-flash`) | Vertex AI endpoint via Cloud Run | supervised fine-tuned (291 train / 56 val examples) | event/confirmed/severity/message/action → alert |
 | C | MediaPipe Face Landmarker | phone | pretrained | landmarks/blendshapes/pose → rules |
 
-## Repo layout
-```
-android/            Kotlin + Compose app (CameraX, MediaPipe Tasks)
-  app/src/main/java/edu/csueb/driveaware/
-    signals/        pure Kotlin, unit-tested: FaceSignals (EAR/MAR/pose), TemporalEngine (rules),
-                    Calibration, Thresholds, Sunglasses, ActivityRules (Model A rules), FatigueScore,
-                    CropGeometry (Model A crop, same as the Python crop)
-    vision/         FaceLandmarkerHelper (Model C), ModelAClassifier (Model A)
-    data/           EventLogger (CSV for match_events.py), SettingsStore, AlertManager, BackendClient
-    ui/             MonitorViewModel (fusion, modes, alerts, trip summary)
-    MainActivity.kt Home · Calibration · Monitoring · Alert · Trip Summary · Settings · Test options
-backend/            FastAPI for Cloud Run: /verify (event check), /summary (trip note), /health
-tests/scripts/      Vanessa's system-test session scripts (S01.csv … S08.csv)
-tests/validation/   validation clip scripts (V01.csv … V03.csv) for threshold tuning
-docs/spec_notes.md  specs for the report: models, rules, screens, backend, measured numbers
-reports/            weekly progress reports
-```
-
 ## 1. App execution instructions
 
 ### 1.1 Install the APK (fastest)
@@ -113,175 +95,137 @@ phone. `/verify` applies the authority rule (measured closures / PERCLOS / nods 
 cooldown per event type and a template fallback; `/summary` asks the base model for a 2–3 sentence trip note from
 counts only. Undeploy after grading: `gcloud run services delete driveaware-backend --region us-central1`.
 
-## Status (v0.8, Nov 13)
-- ✅ Model C + rules: blink, long closure (no alert from a yawn), PERCLOS, yawn, nod, gaze-away
-  (mirror checks < 2 s don't alert), calibration, sunglasses degraded mode (eye/cheek brightness), fatigue score
-- ✅ Model A path: classifier wrapper on the upper-body crop every 3rd frame, 70 % / 2 s rule, hand-occupied,
-  face-touch counter, force-output test switch (waiting for `model_a_v1.tflite`)
-- ✅ All 5 proposal screens, recovery states (face not found after 3 s, sunglasses, offline), event-log CSV
-- ✅ Backend live on Cloud Run with base Gemini 3.5 Flash: /verify, /summary (Gemini trip note), /health
-- ⏳ Tuned Gemini endpoint, final thresholds from V01–V03, Model A v1, system-test results
+## 2. Code description
 
-## Project 2 guidelines checklist
+All app code is Kotlin (Jetpack Compose UI, CameraX, MediaPipe Tasks, TensorFlow Lite); the backend is Python
+(FastAPI on Cloud Run). Path prefix for the app sources: `android/app/src/main/java/edu/csueb/driveaware/`.
 
-This checklist tracks the Project 2 course requirements and final deliverables. The full course guidelines are the source of truth. Check each item only after the work is completed and verified.
+### 2.1 Android app: screens and orchestration
+| File | What it contains |
+|---|---|
+| `MainActivity.kt` | The whole UI in Jetpack Compose. Sets up CameraX (front camera, 640×480, landscape) and feeds frames to Model C. Screens: **Home** (status chips ✓ Camera/Calibrated/Cloud/Model A, session ID, start trip), **Calibration**, **Monitoring** (status tiles for eyes, head, activity, glasses + fatigue bar), **Alert banner** with I'M OK, **full-screen red flash** for Level 3, **Trip summary** (fatigue chart, alerts by level, Gemini note, export), **Settings** (one slider per threshold) and **Test options** (ablation mode, debug overlay, force Model A output). Also draws the recovery chips (face not found, sunglasses, offline) and the debug overlay. |
+| `ui/MonitorViewModel.kt` | The "brain" of the app. Holds the UI state and, for every frame: runs the rules engine, runs Model A on every 3rd frame (unless mode = rules only), fuses the results into events and alert levels, plays alerts, sends events to the backend (full mode only), applies Gemini's verdict or the local template message, logs every event, and builds the trip summary. Also handles calibration, the three ablation modes and the "force Model A output" test switch. |
 
-### 1. Mobile Application Requirements
+### 2.2 Android app: Model C (face) and Model A (activity)
+| File | What it contains |
+|---|---|
+| `vision/FaceLandmarkerHelper.kt` | **Model C**: wraps the pretrained MediaPipe Face Landmarker in live-stream mode (GPU, CPU fallback). Uses the GPU on phones and the CPU on the emulator (rebuilds on CPU if the GPU fails). Turns each result (478 landmarks, 52 blendshapes, head-pose matrix) into a `FrameSignals` object, and measures eye- and cheek-region brightness for the sunglasses check. |
+| `vision/ModelAClassifier.kt` | **Model A**: loads `model_a_v1.tflite` and classifies the upper-body crop into 5 classes (safe_driving, phone_use, drinking, smoking, face_touch). Uses the MediaPipe Image Classifier when the model has metadata, otherwise the plain TFLite interpreter with `model_a_labels.txt` (our run02 model). Reports load errors on the overlay. |
+| `signals/CropGeometry.kt` | The Model A input crop: upper-body box around the detected face, padded to a square, 224×224. Same geometry as `crop.py` in the models repo, so the phone sees the same kind of image Model A was trained on. Also maps Model A's subclass scores to the 5 app classes. |
 
-- [ ] Build and demonstrate a real Android mobile application using live camera input, not a Colab-only application. (Swathi)
-- [ ] Allow the user to start and control the monitoring session. (Swathi)
-- [ ] Show that the application is processing camera input and displaying results. (Swathi)
-- [ ] Provide useful results and alerts that allow the user to take action. (Swathi)
-- [ ] Handle situations where the system cannot determine an answer, including face not found, limited eye tracking, and offline operation. (Swathi)
-- [ ] Include meaningful user interaction and recovery options, not only object or activity recognition. (Swathi)
-- [ ] Document where each model runs: on the phone or in the cloud. (Swathi and Bindu)
+### 2.3 Android app: signals and decision rules (plain Kotlin, unit-tested)
+| File | What it contains |
+|---|---|
+| `signals/FaceSignals.kt` | Geometry on the landmarks: **EAR** (eye aspect ratio), **MAR** (mouth aspect ratio) + the jawOpen blendshape, and **yaw / pitch / roll** from the head-pose matrix. Defines `FrameSignals`, one processed frame. |
+| `signals/Calibration.kt` | The 10-second calibration: collects EAR and head pose while the driver looks at the road, and keeps medians (so a blink doesn't skew them) as that driver's baseline. |
+| `signals/Thresholds.kt` | Every tunable number in one place (eye closed = 0.6 × baseline EAR, long closure 1 s, PERCLOS ≥ 0.20 over 60 s, yawn MAR 0.45 for 0.8 s, nod 20°, gaze-away 2 s, Model A 0.6 confidence in 70 % of frames over 2 s, sunglasses ratio 0.6 …). Defaults are the values tuned on our validation clips. |
+| `signals/TemporalEngine.kt` | The drowsiness/distraction rules over time: blink vs. long eye closure (Level 3 at 1 s), rolling 60 s **PERCLOS**, yawn counter, **nod** detector, **gaze-away** timer (mirror checks under 2 s don't alert), refractory time so one event isn't repeated, and the guards that stop false alerts (no eye-closure alert while yawning, looking away or wearing sunglasses). Outputs `DetectedEvent`s with a level. |
+| `signals/ActivityRules.kt` | Rules on Model A's output: an activity event only fires when ≥ 70 % of predictions over 2 s are that class with confidence > 0.6, so one wrong frame can't alert. Also the "hand occupied" flag and the face-touch counter. |
+| `signals/Sunglasses.kt` | Sunglasses detection from the eye/cheek brightness ratio with a 3 s hold. While on, eye-based alerts are switched off (the eyes can't be measured) and the app shows "Eye tracking limited: sunglasses". |
+| `signals/FatigueScore.kt` | One 0–100 fatigue number for the trip: PERCLOS (40 pts), nods (25), yawns (20) and face touches (15) over their time windows. Drives the fatigue bar and the summary chart. |
 
-### 2. Three-Model Architecture
+### 2.4 Android app: alerts, cloud, logging, settings
+| File | What it contains |
+|---|---|
+| `data/AlertManager.kt` | Plays the tiered alerts: Level 1 chime, Level 2 chime + spoken message + vibration, Level 3 loud alarm + long vibration (+ red flash in the UI). Level 3 fires immediately, never waiting for the network. |
+| `data/BackendClient.kt` | Talks to the Cloud Run backend: sends the 512 px keyframe + 10 s signal summary to `/verify` (4 s timeout, one retry) and the trip counts to `/summary`; warms the server up at trip start. Any failure returns null, and the app falls back to its local template messages ("Offline: local alerts only"). No API keys on the phone. |
+| `data/EventLogger.kt` | Writes one CSV row per event (time, type, level, source, mode, Model A class/confidence, Gemini verdict, severity, latency, FPS) for each trip; exported from the trip summary and read by the evaluation script in the models repo. |
+| `data/SettingsStore.kt` | Saves the thresholds, the calibration baseline and the last trip's summary on the phone (SharedPreferences). |
 
-- [ ] Integrate all three models into one working system. (Swathi)
-- [ ] Model A: document the trained or fine-tuned EfficientNet-Lite0 activity classifier. (Mahitha and Bindu)
-- [ ] Model B: document the fine-tuned Gemini multimodal model and its responsibility. (Bindu and Swathi)
-- [ ] Model C: document the pretrained MediaPipe Face Landmarker and its responsibility. (Bindu and Swathi)
-- [ ] Explain why each model is needed and what its specific job is. (Bindu)
-- [ ] Document each model's exact name, purpose, input, output, location, customization, and next step. (Bindu)
-- [ ] Include the final system architecture diagram in the documentation report. (Mahitha and Bindu)
-- [ ] Show the camera input, preprocessing, all three models, information passed between components, backend, application logic, and user output in the architecture diagram. (Mahitha and Swathi)
+### 2.5 Android project files
+| File | What it contains |
+|---|---|
+| `android/app/build.gradle.kts` | App module build: Android 8.0+ (minSdk 26, target 34), version 0.10.0, dependencies (CameraX, MediaPipe Tasks Vision, TensorFlow Lite 2.16, Jetpack Compose), reads `backendUrl` from `local.properties` into `BuildConfig`, keeps `.tflite`/`.task` assets uncompressed. |
+| `android/build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`, `gradle/wrapper/*`, `gradlew`, `gradlew.bat` | Standard Gradle project setup and the Gradle wrapper (8.9). |
+| `android/app/src/main/AndroidManifest.xml` | App manifest: camera, internet, vibration and wake-lock permissions, landscape activity, FileProvider for sharing the exported log. |
+| `android/app/src/main/res/values/strings.xml` · `res/xml/file_paths.xml` | App name · folder the FileProvider may share (exported event logs). |
+| `android/app/src/main/assets/model_a_v1.tflite` · `model_a_labels.txt` | **Model A** (fine-tuned MobileNetV3-Small, 1.9 MB, float16) and its 5 class names. |
+| `android/download_assets.sh` | Downloads the pretrained **Model C** file (`face_landmarker.task`) into the assets folder. |
+| `android/app/src/test/.../TemporalEngineTest.kt` | Unit tests for the drowsiness rules: a 1 s eye closure is Level 3, blinks and mirror checks don't alert but a long gaze-away does, nod alone is Level 2, yawns and nods are counted, PERCLOS needs a full 60 s window, no eye-closure alert during a yawn. |
+| `android/app/src/test/.../NewRulesTest.kt` | Unit tests for sunglasses detection (eye/cheek ratio, hold time, dark room stays off, eye alerts skipped but nods kept), activity rules (phone held 2 s fires once, flickering or low-confidence output doesn't), face-touch counting, the fatigue score, and the fixes for tester-reported issues (yawn with closed eyes, looking up, eyes closed facing forward). |
+| `android/app/src/test/.../CropGeometryTest.kt` | Checks that the phone's crop matches the Python training crop exactly, and that subclass scores add up into the 5 app classes. |
 
-### 3. Data Collection and Documentation
+### 2.6 Backend (Cloud Run, Python)
+| File | What it contains |
+|---|---|
+| `backend/app/main.py` | FastAPI app with `/verify` (keyframe + signals → fine-tuned Gemini → verdict), `/summary` (trip counts → base Gemini → 2–3 sentence trip note) and `/health`. Calls Vertex AI with a JSON response schema and minimal thinking; model, location and timeouts come from environment variables. |
+| `backend/app/logic.py` | The decision logic, kept separate so it can be unit-tested: builds the prompt (signal line), the **authority rule** (measured eye closure / PERCLOS / nods can never be dismissed by Gemini), the **30 s cooldown** per event type, template messages for offline/timeouts, and the trip-summary prompt. |
+| `backend/app/schema.py` | Request/response models (Pydantic): signal summary, verify request, Gemini verdict (event, confirmed, severity, message ≤ 20 words, action), summary request/response. Labels match the models repo exactly. |
+| `backend/tests/test_logic.py` · `test_guide_alignment.py` | Unit tests for the authority rule, cooldown, templates and prompt; checks that the backend's rules agree with the labeling guide used to tune Gemini. |
+| `backend/Dockerfile` · `.dockerignore` · `deploy.sh` | Container image and the one-command Cloud Run deploy (service account with Vertex AI User only, us-central1). |
+| `backend/requirements.txt` · `requirements-dev.txt` | Python dependencies (FastAPI, Uvicorn, Pydantic, google-genai) and test dependencies (pytest, httpx). |
 
-- [ ] Document the data sources used for Model A and Model B. (Mahitha)
-- [ ] Document how the data was collected and how many examples were used. (Mahitha and Bindu)
-- [ ] Document the data format, labels, preprocessing, and train/validation/test splits for each trained or fine-tuned model. (Mahitha)
-- [ ] Document dataset limitations, possible biases, and other relevant restrictions. (Mahitha)
-- [ ] Include the team's application-specific data. (Mahitha)
-- [ ] Keep held-out test subjects separate from training, validation, and threshold tuning. (Everyone)
-- [ ] Make sure final test examples are not used to train or fine-tune either model. (Everyone)
-- [ ] Include the Data Documentation in the final report. (Mahitha and Bindu)
+### 2.7 Test data and documentation
+| File | What it contains |
+|---|---|
+| `tests/scripts/S01.csv` … `S08.csv` | The 8 scripted system-test sessions (held-out drivers): every event with its start/end time, type and condition. Ground truth for the full-system evaluation. |
+| `tests/validation/V01.csv` … `V04.csv` | Event timings for the validation clips used to tune the thresholds (never the test sessions). |
+| `docs/spec_notes.md` | Specs for the report: models, rules, screens, backend and measured numbers. |
+| `docs/screenshots/` | App screenshots used in this README (camera view blurred). |
+| `reports/weekly-progress-report.md` | Weekly progress reports. |
+| `.github/ISSUE_TEMPLATE/` | Bug-report and task templates for GitHub Issues. |
 
-### 4. Model A and Model B Evaluation
+## 3. Testing
+_Full-system test results (3.1 starting the app, 3.2 app results) are added after the final test sessions._
+Model results (Model A curves and confusion matrices, Gemini base vs. tuned) are in the
+[models repo](https://github.com/PallikalaS/driveaware-models).
 
-- [ ] Evaluate Model A using the held-out test data. (Bindu)
-- [ ] Report Model A accuracy, precision, recall, F1, macro-F1, and confusion matrices. (Bindu)
-- [ ] Include Model A training and validation loss and accuracy curves. (Mahitha and Bindu)
-- [ ] Compare the fully fine-tuned Model A against the CLIP zero-shot and frozen-backbone EfficientNet-Lite0 baselines using the same test set. (Bindu)
-- [ ] Include successful and failed Model A examples with explanations. (Bindu)
-- [ ] Include Model A results broken down by relevant conditions, including lighting and eyewear. (Bindu)
-- [ ] Evaluate Model B using held-out test examples. (Bindu)
-- [ ] Compare base Gemini against fine-tuned Gemini. (Bindu)
-- [ ] Report Model B event accuracy, macro-F1, severity accuracy, confusion matrix, false-alarm rejection rate, valid-JSON rate, message length, and latency. (Bindu)
-- [ ] Include Gemini tuning results and loss curves. (Swathi and Bindu)
-- [ ] Include successful and failed Gemini examples with explanations. (Bindu)
+## 4. What we built, and known limitations
 
-### 5. Full-System Testing and Evaluation
+### 4.1 What works: every part of the proposal runs, end to end
+DriveAware delivers the full system from the proposal: a phone on the dashboard that watches the driver live,
+three AI models working together, and alerts that reach the driver in time even with no network.
 
-- [ ] Test the complete application using the eight planned sessions and held-out members. (Vanessa)
-- [ ] Record the sessions in a parked car or with the subject as a non-driving passenger. (Vanessa)
-- [ ] Keep the application and event logging enabled during each session. (Vanessa)
-- [ ] Export each event log to Test_sessions/ and run the matching script against the corresponding session CSV. (Vanessa and Swathi)
-- [ ] Report precision and recall for each behavior. (Vanessa)
-- [ ] Report false alarms per 10 minutes of normal driving. (Vanessa)
-- [ ] Report detection delay. (Vanessa)
-- [ ] Measure on-device FPS and battery use. (Swathi)
-- [ ] Measure Gemini round-trip time. (Vanessa and Swathi)
-- [ ] Perform ablation testing on three sessions using rules only, rules plus Model A, and the full system. (Vanessa)
-- [ ] Perform error-injection testing using the force Model A output option and record whether the rules or Gemini catch the incorrect output. (Vanessa)
-- [ ] Record the first stage responsible for every missed or false alert. (Vanessa)
-- [ ] Include the failure-source bar chart. (Vanessa)
-- [ ] Explain error propagation, the components that fail most often, system response time, and how the system handles incorrect model outputs. (Vanessa and Bindu)
-- [ ] Include system-testing results, successful examples, failed examples, and limitations in the report. (Vanessa and Bindu)
+- **Three models, one live pipeline.** MediaPipe Face Landmarker (Model C) runs on every camera frame, our
+  fine-tuned activity classifier (Model A) runs on the phone every 3rd frame, and our fine-tuned Gemini (Model B)
+  verifies events in the cloud. The phone keeps a smooth live view (25–37 FPS on the test phone, from the debug overlay).
+- **Drowsiness detection:** long eye closures, PERCLOS over 60 s, yawns, head nods and gaze-away, each personalised
+  by a 10-second calibration for every driver.
+- **Distraction detection on the phone:** phone use, drinking, smoking and face touching, with a 2-second
+  confirmation rule (≥ 70 % of frames) so a single wrong frame never triggers an alert.
+- **Safety-first alert design.** Three escalating levels (chime → voice + vibration → alarm + red flash). Level 3
+  fires on the phone immediately; the cloud never delays a critical alert. An **authority rule** guarantees Gemini can
+  never dismiss a measured drowsiness signal (0 violations in testing).
+- **A fine-tuned Gemini that clearly beats the base model** on our held-out test set (51 events):
 
-### 6. Real-World Camera Testing
+  | Metric | Base Gemini 3.5 Flash | **Fine-tuned (deployed)** |
+  |---|---|---|
+  | Event accuracy | 0.765 | **0.843** |
+  | Severity accuracy | 0.745 | **0.922** |
+  | Follows our labeling guide | 0.686 | **0.882** |
+  | Valid JSON | 1.000 | **1.000** |
+  | Dismissed a measured drowsiness signal | 0 | **0** |
 
-- [ ] Test relevant lighting conditions, including daytime and nighttime. (Vanessa)
-- [ ] Test relevant eyewear conditions, including no glasses, clear glasses, and sunglasses. (Vanessa)
-- [ ] Test both camera mounting angles. (Vanessa)
-- [ ] Test partial face occlusions, including a hand, hat brim, and mask. (Vanessa)
-- [ ] Include previously unseen held-out subjects and examples. (Vanessa)
-- [ ] Show all three alert levels during testing and the demonstration. (Vanessa)
-- [ ] Include at least one honest system failure in the demonstration and explain it. (Vanessa)
-- [ ] Discuss the conditions where the system works and where it has limitations. (Vanessa and Bindu)
+  Our first tuned model reached 0.902 event accuracy and 0.961 severity accuracy.
+- **Detection tuned on real data.** Tuning the thresholds on our own validation clips raised yawn recall from 20 % to
+  80 %, macro-F1 from 0.49 to 0.69 and cut false alarms from 11 to 7.
+- **Model A learns from our data.** Adding our own recordings raised the fine-tuned model's accuracy on drivers it has
+  never seen from 0.26 to 0.40, in a model small enough (1.9 MB) to run live on a phone.
+- **Works in real conditions:** day and night, clear glasses and sunglasses (a dedicated sunglasses mode),
+  "face not found" guidance, and a full **offline mode** where every alert still works.
+- **Complete app experience:** calibration, live status tiles, fatigue score, a trip summary with a fatigue chart
+  and a Gemini-written note, event-log export, and every threshold adjustable in Settings.
+- **Private by design:** no video leaves the phone, only one 512 px keyframe and a few numbers per event.
+- **Our own dataset:** all four of us recorded scripted driving clips in four lighting/eyewear conditions,
+  398 events hand-labeled for Gemini with a second-person quality check, and two team members held out
+  entirely for testing.
+- **Built with testing at its core:** 25 app unit tests, backend tests and 42 tests in the models repo; bugs found
+  by our tester were fixed and re-released within a day (v0.9).
 
-### 7. GitHub, Project Management, and Weekly Progress
+### 4.2 Known limitations, what causes them, and how we handle them
+| Area | What we see | Likely cause | How the system handles it / next step |
+|---|---|---|---|
+| Model A on new drivers | 0.40 accuracy on unseen drivers (CLIP zero-shot: 0.55); smoking and safe driving are the hardest classes | Only two team members could be used for training (two are held out), and the public State Farm images use a different camera angle than a dashboard phone | The 2-second confirmation rule filters single-frame mistakes, and Gemini re-checks every activity event on the keyframe. CLIP itself is too large to run live on a phone. Next: more drivers and distilling CLIP into the small model |
+| Gemini response time | Median 2.9 s; slowest calls up to ~7 s (95th percentile), above the phone's 4 s limit | Latency of the tuned model endpoint on Vertex AI | The alert itself always fires instantly on the phone; for slow calls the app shows its own clear message instead of Gemini's. Next: a longer timeout or a smaller model |
+| Sunglasses | Eye-closure and PERCLOS alerts pause while dark sunglasses are detected | The eyes can't be seen reliably through dark lenses | By design: the app tells the driver ("Eye tracking limited: sunglasses") and keeps yawn, nod, gaze and activity detection running. Next: an infrared camera |
+| Rare events | Fewer gaze-away (8) and smoking (6) tuning examples than our target of 15 | Natural imbalance in recorded clips | Gemini still improved on these types; more recordings would close the gap |
+| Cloud | Our course cloud credit ran out on Nov 18 and the first tuned model was deleted | Credit limit of the education account | We restored the service within a day and re-tuned on the same data (results above). The app's offline mode kept every alert working in the meantime |
 
-- [ ] Maintain the mobile application repository, driveaware-app. (Swathi)
-- [ ] Maintain the model development repository, driveaware-models. (Swathi)
-- [ ] Include source code, training and evaluation code, data preparation code, and technical documentation in the appropriate repositories. (Swathi)
-- [ ] Maintain GitHub Issues and the Project board with task owners and statuses. (Vanessa)
-- [ ] Maintain meaningful commit history showing each member's contributions. (Everyone)
-- [ ] Keep weekly progress reports showing completed work, outstanding work, and links to relevant Issues or commits. (Everyone; Vanessa coordinates the report)
-- [ ] Make each member's individual contributions identifiable. (Everyone)
-- [ ] Include setup and reproduction instructions in the repositories. (Swathi)
+### 4.3 Changes from the proposal
+- **Model A architecture:** EfficientNet-Lite0 (MediaPipe Model Maker) → **MobileNetV3-Small** in Keras, because Model
+  Maker no longer installs on Colab's Python 3.13. Same role, same input, also small enough for the phone.
+- **Gemini version:** gemini-2.5-flash was retired on Vertex AI in October 2026, so we fine-tuned **Gemini 3.5 Flash**
+  (tuned and served in the `us` multi-region, where 3.5 Flash tuning is available).
 
-### 8. Final Documentation Report
-
-- [ ] Project Overview. (Bindu)
-- [ ] Response to proposal feedback. (Bindu)
-- [ ] System Architecture. (Mahitha and Bindu)
-- [ ] Installation and Setup. (Swathi and Bindu)
-- [ ] Data Documentation. (Mahitha and Bindu)
-- [ ] Model A Specifications and Results. (Mahitha and Bindu)
-- [ ] Model B Gemini Fine-Tuning Specifications and Results. (Bindu and Swathi)
-- [ ] Additional Model Specifications for Model C. (Bindu and Swathi)
-- [ ] Mobile Application GUI and Specifications, including screenshots. (Vanessa and Bindu)
-- [ ] Cloud and Backend Specifications. (Swathi and Bindu)
-- [ ] Testing and Evaluation. (Vanessa)
-- [ ] Results Discussion, including successes, failures, limitations, and system performance. (Vanessa and Bindu)
-- [ ] Instructions for Reproducing the System. (Swathi and Bindu)
-- [ ] Include the required data, model, and system evaluation results, graphs, screenshots, and failure examples. (Everyone)
-- [ ] Collect all team sections into one report draft and review it. (Bindu)
-- [ ] Export the final Documentation Report as a PDF and upload it to Canvas. (Bindu)
-- [ ] Link the final report from the driveaware-app README. (Bindu)
-
-### 9. Final Presentation
-
-- [ ] Problem. (Mahitha)
-- [ ] Users. (Mahitha)
-- [ ] Architecture. (Mahitha)
-- [ ] Models. (Mahitha)
-- [ ] Data. (Mahitha)
-- [ ] Training and Fine-Tuning. (Mahitha)
-- [ ] Mobile Application. (Mahitha)
-- [ ] Evaluation. (Mahitha and Vanessa)
-- [ ] Results. (Mahitha and Vanessa)
-- [ ] Failures. (Mahitha and Vanessa)
-- [ ] Lessons Learned. (Mahitha)
-- [ ] Add the final results from Bindu and Vanessa. (Mahitha)
-- [ ] Explain the project sections to the team and prepare for the presentation and demo. (Swathi)
-- [ ] Rehearse the presentation with the team and submit the final slides. (Mahitha)
-
-### 10. Demonstration Video
-
-- [ ] Use the actual Android application with live camera input. (Vanessa)
-- [ ] Demonstrate held-out members and previously unseen examples. (Vanessa)
-- [ ] Show all three alert levels. (Vanessa)
-- [ ] Show sunglasses mode and its behavior. (Vanessa)
-- [ ] Show offline operation. (Vanessa)
-- [ ] Show the trip summary. (Vanessa)
-- [ ] Include one honest failure. (Vanessa)
-- [ ] Do not show notebooks or source code in the demonstration. (Vanessa)
-- [ ] Edit and narrate the final demonstration video. (Vanessa)
-- [ ] Upload the video to YouTube as Unlisted. (Vanessa)
-- [ ] Add the video link to the README and final report. (Vanessa)
-
-### 11. Final Repository and Project Handover
-
-- [ ] Include the final Android application source code repository URL. (Swathi)
-- [ ] Include the model development repository URL, including Model A training, Gemini fine-tuning, evaluation, and data preparation code. (Swathi)
-- [ ] Include setup and reproduction notes in both repository READMEs. (Swathi)
-- [ ] Fix bugs reported as GitHub Issues during system testing and release the final APK. (Swathi)
-- [ ] Confirm the final report and demonstration video links are included in the app repository README. (Bindu and Vanessa)
-- [ ] After grading, undeploy the tuned Gemini endpoint and Cloud Run service. (Swathi)
-
-### 12. Requirements to Verify
-
-The following items need to be checked against the course guidelines and the team's completed work. Do not assume they are complete just because related tasks are listed.
-
-- [ ] Confirm that the project has instructor approval if approval is required. (Team)
-- [ ] Confirm that the final architecture diagram is included in both the proposal and final report. (Mahitha and Bindu)
-- [ ] Explain why each image-processing and preprocessing step is used, including cropping, resizing, and temporal processing. (Swathi and Mahitha)
-- [ ] Confirm that every model's input, output, location, customization, and next step are documented. (Bindu)
-- [ ] Confirm that data limitations, biases, sources, and splits are documented for both trained or fine-tuned models. (Mahitha and Bindu)
-- [ ] Confirm that held-out test data was not used for training, fine-tuning, or threshold tuning. (Everyone)
-- [ ] Confirm that the report explains how the application handles uncertain results, incorrect predictions, and component failures. (Vanessa and Bindu)
-- [ ] Confirm that the final report includes system response time, FPS, battery use, and Gemini latency where required. (Vanessa, Swathi, and Bindu)
-- [ ] Confirm that the final results include both successful and failed examples, not only successful demonstrations. (Everyone)
+## 5. Demo video
+_YouTube link (narrated live demo with accuracy discussion) is added here once uploaded._

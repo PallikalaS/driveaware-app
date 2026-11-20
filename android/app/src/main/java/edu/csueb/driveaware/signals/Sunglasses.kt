@@ -1,10 +1,12 @@
 package edu.csueb.driveaware.signals
 
 /**
- * Sunglasses check (task #18). Dark lenses make the eye region both DARK (low mean
- * gray) and FLAT (low Laplacian variance: no eyelid/iris edges). Both must hold for
- * [Thresholds.sunglassesHoldS] to switch on, and both must clear for the same time
- * to switch off, so a blink or a passing shadow doesn't flip the mode.
+ * Sunglasses check (task #18, v0.9). Dark lenses make the eye region much darker than the
+ * cheeks, while a dark room darkens both. So the test is the eye/cheek brightness ratio
+ * (<= [Thresholds.sunglassesRatio]); it must hold for [Thresholds.sunglassesHoldS] to switch
+ * on and clear for the same time to switch off, so a blink or a passing shadow doesn't flip
+ * the mode. When the cheeks are too dark to judge (< [Thresholds.sunglassesMinCheek]) the
+ * current state is kept.
  *
  * While on, the app runs in degraded mode: eye-based events (long closure, PERCLOS)
  * are not raised, because the landmark model is guessing the eyelids. Yawns, nods,
