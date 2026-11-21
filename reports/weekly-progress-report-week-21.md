@@ -1,7 +1,7 @@
 Write the weekly progress report from closed Issues and commits, with each person's finished work. Commit to reports/.
 
 **DriveAware – Weekly Progress Report**
-Reporting period: [11/3/26 – 11/12/26]
+Reporting period: [11/9/26 – 11/13/26]
 
 
 **Swathi Pallikala – Completed Work**
