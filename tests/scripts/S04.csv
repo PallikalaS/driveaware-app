@@ -1,10 +1,10 @@
 session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,1,24,25,mirror_check,Briefly looked left for 1 second; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,1,25,27,mirror_check,Briefly looked left for 2 seconds; mount=B
 S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,2,75,77,eye_closure_long,Closed eyes for approximately 2 seconds; mount=B
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,3,106,109,nod,Slow downward head nod; mount=B
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,4,115,118,gaze_away,Looked toward passenger side; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,3,106,110,nod,Slow downward head nod; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,4,118,121,gaze_away,Looked toward passenger side; mount=B
 S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,5,132,192,perclos_high,Repeated blinking for approximately 60 seconds; mount=B
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,6,199,208,drinking,Pretended to drink from a cup; mount=B
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,7,228,234,smoking,Pretended to smoke without a cigarette; mount=B
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,8,252,258,face_touch,Rubbed face; mount=B
-S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,9,258,360,none,Normal behavior; looked forward without performing target behaviors; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,6,200,210,drinking,Pretended to drink from a cup; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,7,228,236,smoking,Pretended to smoke without a cigarette; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,8,254,260,face_touch,Rubbed face; mount=B
+S04,S04_vanessa_night-sun_t1.mp4,vanessa,night-sun,9,260,360,none,Normal behavior; looked forward without performing target behaviors; mount=B
