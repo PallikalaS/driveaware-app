@@ -1,11 +1,11 @@
 session_id,video,subject,condition,event_id,start_s,end_s,event_type,notes
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,1,24,26,mirror_check,Briefly looked left for 2 seconds; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,1,26,28,mirror_check,Briefly looked left for 2 seconds; mount=A
 S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,2,62,65,eye_closure_long,Closed eyes for approximately 3 seconds; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,3,87,92,yawn,Performed a yawn; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,4,113,116,gaze_away,Looked toward passenger side; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,5,129,189,perclos_high,Repeated blinking for approximately 60 seconds; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,6,225,234,drinking,Pretended to drink from a bottle; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,7,252,259,smoking,Pretended to smoke without a cigarette; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,3,88,91,yawn,Performed a yawn; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,4,113,117,gaze_away,Looked toward passenger side; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,5,130,188,perclos_high,Repeated blinking for approximately 58 seconds; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,6,227,235,drinking,Pretended to drink from a bottle; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,7,252,261,smoking,Pretended to smoke without a cigarette; mount=A
 S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,8,273,277,face_touch,Rubbed eyes; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,9,319,333,none,Partial occlusion test; put on and wore mask then removed it; occlusion=mask; mount=A
-S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,10,333,360,none,Normal behavior; looked forward without performing target behaviors; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,9,319,330,none,Partial occlusion test; put on and wore mask then removed it; occlusion=mask; mount=A
+S03,S03_vanessa_night-none_t1.mp4,vanessa,night-none,10,330,360,none,Normal behavior; looked forward without performing target behaviors; mount=A
